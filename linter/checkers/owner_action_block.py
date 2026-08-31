@@ -30,11 +30,10 @@ from __future__ import annotations
 
 import re
 
-from ..common import RED, Finding, in_block_lines, parse_blocks, split_lines
+from ..common import (RED, Finding, head_sections, in_block_lines,
+                      parse_blocks, split_lines)
 
 NAME = "owner_action_block"
-
-MD_HEADING = re.compile(r"^#{1,6}\s")
 
 DEFAULT_SECTION = r"^[\s*_>#|-]*\**\s*Ваши\s+действия\b"
 DEFAULT_SECTION_END = r"^[\s*_>#|-]*\**\s*Конец\s+хода\b"
@@ -52,23 +51,6 @@ DEFAULT_VERBS = [
     r"\bвыполн(?:ить|и|ите|ил|или|ять|яйте)\b",
     r"\bзапуст(?:ить|и|ите|ил|или)\b",
 ]
-
-
-def _sections(lines: list[str], head_re, end_re, max_lines: int):
-    """Пары (первая, последняя) 1-индексных строк тела каждого раздела действий."""
-    heads = [i for i, raw in enumerate(lines) if head_re.match(raw)]
-    out = []
-    for i in heads:
-        lo = i + 1                      # первая строка тела, 0-индексно
-        hi = min(len(lines), lo + max_lines)
-        for j in range(lo, hi):
-            if MD_HEADING.match(lines[j]) or end_re.match(lines[j]) \
-               or head_re.match(lines[j]):
-                hi = j
-                break
-        if lo < hi:
-            out.append((lo + 1, hi))    # 1-индексные границы включительно
-    return out
 
 
 def _items(lines: list[str], lo: int, hi: int, blocked: set[int], item_re):
@@ -106,7 +88,7 @@ def check(text: str, config: dict) -> list[Finding]:
     fences = [b.fence_line for b in parse_blocks(text, config)]
     findings: list[Finding] = []
 
-    for lo, hi in _sections(lines, head_re, end_re, max_lines):
+    for lo, hi in head_sections(lines, head_re, end_re, max_lines):
         spans = _items(lines, lo, hi, blocked, item_re)
         has_block = [any(s <= f <= e for f in fences) for s, e in spans]
         for k, (s, e) in enumerate(spans):
