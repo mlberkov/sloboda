@@ -1,0 +1,329 @@
+{
+  "mode": "full",
+  "kind": "handoff",
+  "timestamp": "20260831T152553Z",
+  "files_checked": 14,
+  "checkers": [
+    "shell_mech",
+    "stop_provenance",
+    "env_presupposition",
+    "grep_vacuum",
+    "turn_end",
+    "smoke_line",
+    "live_channel_slot"
+  ],
+  "checkers_skipped": [],
+  "ignores_applied": 0,
+  "findings": [
+    {
+      "file": "linter/fixtures/red/env_presupposition.md",
+      "line": 11,
+      "checker": "env_presupposition",
+      "severity": "red",
+      "message": "[pip_install_outside_venv] `pip install` без venv-пути и без предшествующей строки, создающей или активирующей venv: в среде PEP 668 системный pip отказывает (externally-managed-environment) — блок падает на предпосылке, а не на предмете"
+    },
+    {
+      "file": "linter/fixtures/red/env_presupposition.md",
+      "line": 12,
+      "checker": "env_presupposition",
+      "severity": "red",
+      "message": "[gcloud_run_named_service] `gcloud run …` с именем сервиса без предшествующего `gcloud run services list`: имя взято по памяти, провал блока неотличим от отсутствия предмета"
+    },
+    {
+      "file": "linter/fixtures/red/env_presupposition.md",
+      "line": 13,
+      "checker": "env_presupposition",
+      "severity": "red",
+      "message": "[adb_serial_without_devices] `adb -s <серийник>` без предшествующего `adb devices`: серийник назван по памяти, подключение не измерено"
+    },
+    {
+      "file": "linter/fixtures/red/env_presupposition.md",
+      "line": 20,
+      "checker": "turn_end",
+      "severity": "red",
+      "message": "в handoff-артефакте нет строки «Конец хода»: точка, где нужно слово владельца, не названа — граница хода не проверяема"
+    },
+    {
+      "file": "linter/fixtures/red/grep_vacuum.md",
+      "line": 3,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "строка смоука не цитирует фактический вывод на предмете и не несёт пометки «не исполнялась — первый прогон у владельца» с названным ожиданием: ожидание из головы неотличимо от измеренного, строка возвращается на исполнение"
+    },
+    {
+      "file": "linter/fixtures/red/grep_vacuum.md",
+      "line": 6,
+      "checker": "grep_vacuum",
+      "severity": "red",
+      "message": "поиск без анти-вакуумной ноги: нулевая выдача неотличима от отсутствия предмета, несовпавшего шаблона и пустого входа — нужен `|| echo`-маркер отрицания либо счёт попаданий на измеренно непустом входе"
+    },
+    {
+      "file": "linter/fixtures/red/grep_vacuum.md",
+      "line": 7,
+      "checker": "grep_vacuum",
+      "severity": "red",
+      "message": "поиск без анти-вакуумной ноги: нулевая выдача неотличима от отсутствия предмета, несовпавшего шаблона и пустого входа — нужен `|| echo`-маркер отрицания либо счёт попаданий на измеренно непустом входе"
+    },
+    {
+      "file": "linter/fixtures/red/grep_vacuum.md",
+      "line": 12,
+      "checker": "turn_end",
+      "severity": "red",
+      "message": "в handoff-артефакте нет строки «Конец хода»: точка, где нужно слово владельца, не названа — граница хода не проверяема"
+    },
+    {
+      "file": "linter/fixtures/red/live_channel_slot.md",
+      "line": 9,
+      "checker": "live_channel_slot",
+      "severity": "red",
+      "message": "утверждение о состоянии живого канала («доставлено») со слотом на 1 источник(ах) «чтение страницы инструментом fetch»: пункт требует не менее 2 независимых каналов и обеих выдач — иначе кэш канала чтения выдаёт устаревший предмет при соблюдённом провенансе"
+    },
+    {
+      "file": "linter/fixtures/red/live_channel_slot.md",
+      "line": 13,
+      "checker": "live_channel_slot",
+      "severity": "red",
+      "message": "утверждение о состоянии живого канала («не доехало») без слота «Каналы: X, Y»: независимость второго канала из текста хода не выводится — повторное обращение к тому же адресу читается как второй канал"
+    },
+    {
+      "file": "linter/fixtures/red/shell_mech.md",
+      "line": 5,
+      "checker": "shell_mech",
+      "severity": "red",
+      "message": "shell-блок длиной 28 строк (> 25): не переживает вставку и разметку ответа"
+    },
+    {
+      "file": "linter/fixtures/red/shell_mech.md",
+      "line": 7,
+      "checker": "shell_mech",
+      "severity": "red",
+      "message": "плейсхолдер <PROJECT_ID>: блок не исполним как есть — значение генерируется командой, а не пишется текстом"
+    },
+    {
+      "file": "linter/fixtures/red/shell_mech.md",
+      "line": 8,
+      "checker": "shell_mech",
+      "severity": "red",
+      "message": "плейсхолдер <REGION-NAME>: блок не исполним как есть — значение генерируется командой, а не пишется текстом"
+    },
+    {
+      "file": "linter/fixtures/red/shell_mech.md",
+      "line": 11,
+      "checker": "shell_mech",
+      "severity": "red",
+      "message": "вложенная ограда ``` внутри shell-блока: разметка ответа рвёт блок на месте вставки"
+    },
+    {
+      "file": "linter/fixtures/red/shell_mech.md",
+      "line": 13,
+      "checker": "shell_mech",
+      "severity": "red",
+      "message": "вложенная ограда ``` внутри shell-блока: разметка ответа рвёт блок на месте вставки"
+    },
+    {
+      "file": "linter/fixtures/red/shell_mech.md",
+      "line": 33,
+      "checker": "shell_mech",
+      "severity": "red",
+      "message": "`exit` в блоке: закрывает оболочку владельца, остаток блока не исполняется и об этом не сообщается"
+    },
+    {
+      "file": "linter/fixtures/red/shell_mech.md",
+      "line": 36,
+      "checker": "turn_end",
+      "severity": "red",
+      "message": "в handoff-артефакте нет строки «Конец хода»: точка, где нужно слово владельца, не названа — граница хода не проверяема"
+    },
+    {
+      "file": "linter/fixtures/red/smoke_line.md",
+      "line": 10,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "строка смоука не цитирует фактический вывод на предмете и не несёт пометки «не исполнялась — первый прогон у владельца» с названным ожиданием: ожидание из головы неотличимо от измеренного, строка возвращается на исполнение"
+    },
+    {
+      "file": "linter/fixtures/red/smoke_line.md",
+      "line": 20,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "строка смоука помечена «не исполнялась», но ожидание не названо: владелец получает строку и не получает, с чем сравнить её вывод (нужна строка «Ожидание: …» не короче 10 значащих символов)"
+    },
+    {
+      "file": "linter/fixtures/red/stop_provenance.md",
+      "line": 7,
+      "checker": "stop_provenance",
+      "severity": "red",
+      "message": "число 7 в блоке стоп-условия без соседнего провенанса: рядом нет ни команды, его вернувшей, ни цитаты выдачи, ни пометки «ожидание»/«не проверено»"
+    },
+    {
+      "file": "linter/fixtures/red/stop_provenance.md",
+      "line": 8,
+      "checker": "stop_provenance",
+      "severity": "red",
+      "message": "число 4 в блоке стоп-условия без соседнего провенанса: рядом нет ни команды, его вернувшей, ни цитаты выдачи, ни пометки «ожидание»/«не проверено»"
+    },
+    {
+      "file": "linter/fixtures/red/stop_provenance.md",
+      "line": 9,
+      "checker": "stop_provenance",
+      "severity": "red",
+      "message": "число 12 в блоке стоп-условия без соседнего провенанса: рядом нет ни команды, его вернувшей, ни цитаты выдачи, ни пометки «ожидание»/«не проверено»"
+    },
+    {
+      "file": "linter/fixtures/red/turn_end.md",
+      "line": 5,
+      "checker": "turn_end",
+      "severity": "red",
+      "message": "«Конец хода» не называет требуемое слово владельца: после двоеточия 2 значащих символов (порог 10)"
+    }
+  ],
+  "meta": [
+    {
+      "checker": "shell_mech",
+      "red_findings": 6,
+      "green_findings": 0,
+      "status": "ok"
+    },
+    {
+      "checker": "stop_provenance",
+      "red_findings": 3,
+      "green_findings": 0,
+      "status": "ok"
+    },
+    {
+      "checker": "env_presupposition",
+      "red_findings": 3,
+      "green_findings": 0,
+      "status": "ok"
+    },
+    {
+      "checker": "grep_vacuum",
+      "red_findings": 2,
+      "green_findings": 0,
+      "status": "ok"
+    },
+    {
+      "checker": "turn_end",
+      "red_findings": 1,
+      "green_findings": 0,
+      "status": "ok"
+    },
+    {
+      "checker": "smoke_line",
+      "red_findings": 2,
+      "green_findings": 0,
+      "status": "ok"
+    },
+    {
+      "checker": "live_channel_slot",
+      "red_findings": 2,
+      "green_findings": 0,
+      "status": "ok"
+    }
+  ],
+  "registry": [
+    {
+      "rule_id": "R-PROV-001",
+      "file": "01-theygrow/operations/theygrow-delivery-contract.md",
+      "heading": "Провенанс утверждений оркестратора (добавлено 2026-08-18 по разбору ступени L2).",
+      "stored": "7364c332f12274cb11f6230408a4f72b35018157037743d51a8c4c9b89640c50",
+      "recomputed": "7364c332f12274cb11f6230408a4f72b35018157037743d51a8c4c9b89640c50",
+      "lines": "176-180",
+      "scenarios": [
+        "S-02"
+      ],
+      "scenarios_secondary": [],
+      "status": "ok"
+    },
+    {
+      "rule_id": "R-LIVE-002",
+      "file": "01-theygrow/operations/theygrow-delivery-contract.md",
+      "heading": "Утверждение о живом канале — после второго канала (добавлено 2026-08-28, разбор milestone UIP; уточняет «Провенанс утверждений оркестратора» выше).",
+      "stored": "a61b75459b65567fbc457df75166a382e382e59ba8555ffc36a1bf70172f2bbe",
+      "recomputed": "a61b75459b65567fbc457df75166a382e382e59ba8555ffc36a1bf70172f2bbe",
+      "lines": "214-214",
+      "scenarios": [
+        "S-01"
+      ],
+      "scenarios_secondary": [],
+      "status": "ok"
+    },
+    {
+      "rule_id": "R-SHELL-003",
+      "file": "01-theygrow/operations/theygrow-delivery-contract.md",
+      "heading": "Исполнимость shell-блока (добавлено 2026-08-18 по разбору ступени L2).",
+      "stored": "48f5723edf7eebfba2508388937a8fc90d720cd73392336f157c2801fb110850",
+      "recomputed": "48f5723edf7eebfba2508388937a8fc90d720cd73392336f157c2801fb110850",
+      "lines": "184-184",
+      "scenarios": [
+        "S-03",
+        "S-04"
+      ],
+      "scenarios_secondary": [],
+      "status": "ok"
+    },
+    {
+      "rule_id": "R-SMOKE-004",
+      "file": "01-theygrow/operations/theygrow-delivery-contract.md",
+      "heading": "Строка смоука — детектор и исполняется на предмете до выдачи (добавлено 2026-08-23, разбор milestone PPR).",
+      "stored": "5f9a372423d35979038753a51bafb5c1e7a19763b3ca215ff6d575cfa84c541a",
+      "recomputed": "5f9a372423d35979038753a51bafb5c1e7a19763b3ca215ff6d575cfa84c541a",
+      "lines": "199-200",
+      "scenarios": [
+        "S-06"
+      ],
+      "scenarios_secondary": [
+        "S-04"
+      ],
+      "status": "ok"
+    },
+    {
+      "rule_id": "R-TURN-005",
+      "file": "01-theygrow/operations/theygrow-delivery-contract.md",
+      "heading": "Конец хода — точка, где нужно слово владельца (добавлено 2026-08-25, разбор сессии security-каденции).",
+      "stored": "445ed61c9b73d5da3360401948caa248675c29c4f73b5c83db095db0e3170397",
+      "recomputed": "445ed61c9b73d5da3360401948caa248675c29c4f73b5c83db095db0e3170397",
+      "lines": "188-189",
+      "scenarios": [
+        "S-05"
+      ],
+      "scenarios_secondary": [],
+      "status": "ok"
+    }
+  ],
+  "infra": [
+    {
+      "class": "infra",
+      "check": "clone_freshness",
+      "clone": "~/vaults/theygrow-vault",
+      "branch": "main",
+      "upstream": "origin/main",
+      "head": "ac605845346cfb0e4d3c76754cd93b7e70025c92",
+      "remote_head": "ac605845346cfb0e4d3c76754cd93b7e70025c92",
+      "behind": 0,
+      "ahead": 0,
+      "status": "ok",
+      "message": "main ↔ origin/main: HEAD ac605845, удалённый ac605845, отставание 0"
+    },
+    {
+      "class": "infra",
+      "check": "vault_master",
+      "master": "/mnt/d/Obsidian/TheyGrow",
+      "canon_paths": [
+        "00-system/",
+        "01-theygrow/operations/",
+        "02-synthesis/"
+      ],
+      "head": "ac605845346cfb0e4d3c76754cd93b7e70025c92",
+      "clone_head": "ac605845346cfb0e4d3c76754cd93b7e70025c92",
+      "dirty_canon": [],
+      "ahead": null,
+      "status": "ok",
+      "message": "HEAD ac605845 ↔ клон ac605845, незакоммиченных путей канона: 0"
+    }
+  ],
+  "reds": [],
+  "warnings": [],
+  "verdict": "ЗЕЛЁНЫЙ",
+  "exit_code": 0
+}

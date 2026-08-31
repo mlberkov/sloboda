@@ -33,3 +33,12 @@ echo "шаг 18 из длинного блока"
 exit 1
 ````
 
+Handoff for shell — блок коммита вольта, написанный в Windows-синтаксисе и выданный
+на исполнение в bash/WSL (инцидент 2026-08-31).
+
+```bash
+cd D:\Obsidian\TheyGrow
+git add -A
+git commit -m "canon: правки дня"
+git push
+```
