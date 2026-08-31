@@ -1,0 +1,153 @@
+"""S-21 / К4: копируемый промпт выдан без списка критериев и числа самооценки.
+
+Опора: prompt-kit, раздел «Правила использования», пункт «Промпт как копируемый
+артефакт — с параметрами и самооценкой» (добавлено 2026-08-23, разбор milestone
+PPR; область расширена 2026-08-25, сессия создания аккаунта Play; реестр:
+R-PROMPTKIT-019). Пункт требует от промпта трёх вещей — блока «принимай как
+данность», явного формата выхода и **самооценки 0–100 по названным в том же
+ходе критериям**; готовый оракул стоит в самом пункте, в поле «Проверка»:
+«ход с промптом содержит список критериев и число; промпт без них возвращается».
+
+Мерится третья из трёх — та, у которой оракул есть. Первые две («параметры одним
+блоком», «явный формат выхода») из текста промпта механически не отличимы от
+прозы: их проверка осталась за владельцем, и чекер о них не говорит. Это
+намеренное сужение, а не упущение: чекер меряет наличие слотов, а не их
+правдивость, — тот же приём, которым S-01 переведён в deterministic.
+
+Что считается копируемым промптом. Признак — данные `shared` манифеста, общие с
+`sources_trailer`: огороженный блок длиннее `prompt_min_lines` строк, несущий
+адресацию исполнителю (`prompt_address_patterns`: «Задача:», «Твоя задача»,
+«Your task», «В ~/»). Блоки с shell-языком в ограде исключены: команда владельцу
+— не промпт другому агенту, а её длина и слово «Задача» ничего о промпте не
+говорят. Область правила с 2026-08-25 — **любой** промпт, покидающий чат, и
+чекер её не сужает обратно: адресат в любом случае не видел этого чата.
+
+Где ищутся критерии и число. В прозе хода вокруг блока — `window` строк до
+открывающей ограды и после закрывающей, **вне** огороженных блоков. Внутри
+блока их искать нельзя: самооценка оркестратора адресована владельцу, а не
+уезжает в чужую сессию вместе с промптом; число, стоящее внутри копируемого
+блока, — часть промпта, а не оценка хода.
+
+Число берётся со строки, несущей форму самооценки (`score_patterns`), и обязано
+лежать в 0–100: «самооценка 86» — оценка, «самооценка по 4 критериям» —
+не оценка, а счёт критериев, и диапазон здесь единственная мера, отличающая
+одно от другого. Числовые диапазоны на строке маскируются до счёта: «самооценка
+0–100 по критериям» называет шкалу правила, а не оценку этого хода, и её левый
+конец не должен читаться как выставленное число.
+
+«Допустимые попадания» пункта — короткий go-ahead шаблона 4 и корректирующие
+реплики, не несущие фактических параметров, — здесь есть отсутствие триггера:
+такой ответ не содержит блока нужной длины с адресацией исполнителю.
+
+Списки форм и пороги — данные манифеста: расширяются без правки модуля.
+
+Чистая функция: ни сети, ни LLM, ни файловых эффектов.
+"""
+
+from __future__ import annotations
+
+import re
+
+from ..common import RED, Finding, in_block_lines, parse_blocks, split_lines
+
+NAME = "prompt_self_assessment"
+
+DEFAULT_ADDRESS = [
+    r"^\s*\**\s*Задача\s*[:—–-]",
+    r"\bТво[яё]\s+задача\b",
+    r"\bYour\s+task\b",
+    r"(?<![\w~])В\s+~/",
+]
+DEFAULT_MIN_LINES = 15
+DEFAULT_CRITERIA = [
+    r"критери\w*",
+]
+DEFAULT_SCORE = [
+    r"самооценк\w*",
+    r"self[-\s]assessment",
+]
+DEFAULT_WINDOW = 15
+# Диапазон — шкала, а не оценка: «самооценка 0–100 по критериям» называет форму
+# правила, а не число этого хода. Маскируется до счёта, иначе левый конец шкалы
+# читался бы как выставленная оценка.
+RANGE = re.compile(r"\d+\s*[–—-]\s*\d+")
+# Точка после числа — конец предложения, а не десятичный разделитель:
+# «Самооценка — 94.» есть оценка. Отсекается только настоящая дробь («1.2»).
+NUMBER = re.compile(r"(?<![\w.,])(\d{1,3})(?![\w,]|\.\d)")
+
+
+def _compile(patterns) -> list[re.Pattern]:
+    return [re.compile(p, re.IGNORECASE) for p in patterns]
+
+
+def prompt_blocks(text: str, config: dict):
+    """Огороженные блоки, читаемые как копируемый промпт другому агенту.
+
+    Общая с `sources_trailer` часть: оба чекера говорят об одном предмете, и две
+    копии признака разошлись бы молча — один перестал бы видеть ровно те блоки,
+    по которым краснеет другой. Признак живёт в `shared` манифеста, разбор — здесь.
+    """
+    address = _compile(config.get("prompt_address_patterns") or DEFAULT_ADDRESS)
+    min_lines = int(config.get("prompt_min_lines", DEFAULT_MIN_LINES))
+    shell_langs = set(config.get("shell_langs") or [])
+    out = []
+    for b in parse_blocks(text, config):
+        if b.lang in shell_langs:
+            continue
+        if len(b.lines) <= min_lines:
+            continue
+        body = "\n".join(b.lines)
+        hit = next((a.search(body) for a in address if a.search(body)), None)
+        if hit is None:
+            continue
+        out.append((b, hit.group(0).strip()))
+    return out
+
+
+def _score(line: str, patterns: list[re.Pattern]) -> int | None:
+    """Число самооценки со строки, несущей форму самооценки; иначе None."""
+    if not any(p.search(line) for p in patterns):
+        return None
+    line = RANGE.sub(lambda m: " " * len(m.group(0)), line)
+    for m in NUMBER.finditer(line):
+        value = int(m.group(1))
+        if 0 <= value <= 100:
+            return value
+    return None
+
+
+def check(text: str, config: dict) -> list[Finding]:
+    config = config or {}
+    criteria = _compile(config.get("criteria_patterns") or DEFAULT_CRITERIA)
+    scores = _compile(config.get("score_patterns") or DEFAULT_SCORE)
+    window = int(config.get("window", DEFAULT_WINDOW))
+
+    lines = split_lines(text)
+    blocked = in_block_lines(text, config)
+    findings: list[Finding] = []
+
+    for block, said in prompt_blocks(text, config):
+        lo = max(1, block.fence_line - window)
+        hi = min(len(lines), block.end + 1 + window)
+        # Проза хода вокруг блока: строки любых оград исключены целиком.
+        near = [lines[i - 1] for i in range(lo, hi + 1) if i not in blocked]
+        blob = "\n".join(near)
+
+        has_criteria = any(c.search(blob) for c in criteria)
+        has_score = any(_score(raw, scores) is not None for raw in near)
+        if has_criteria and has_score:
+            continue
+
+        missing = []
+        if not has_criteria:
+            missing.append("список критериев")
+        if not has_score:
+            missing.append("число самооценки 0–100")
+        findings.append(Finding(
+            block.fence_line, NAME, RED,
+            f"копируемый промпт ({len(block.lines)} строк, адресация исполнителю: "
+            f"«{said}») выдан без: {', '.join(missing)} — адресат не видел чата, в "
+            f"котором промпт собирался, и проверить его утверждения ему нечем; "
+            f"самооценка по названным критериям и есть тот проход, который ловит "
+            f"правдоподобный путь или URL до того, как он уедет в чужую сессию"))
+    return findings
