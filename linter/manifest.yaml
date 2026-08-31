@@ -1,1 +1,122 @@
-checkers: []
+# Реестр чекеров хода-линтера v0.
+#
+# Каждый чекер — модуль в linter/checkers/ с чистой функцией
+#   check(text: str, config: dict) -> list[Finding{line, checker, severity, message}]
+# Без сети, без LLM, без файловых сайд-эффектов.
+#
+# config чекера = shared + собственный config (собственный побеждает).
+# Списки форм S-03 живут здесь: расширение формы — правка данных, не кода.
+
+version: 0
+
+shared:
+  shell_langs: [bash, sh, shell, zsh, console, shell-session]
+  handoff_markers: ["Handoff for shell", "Handoff for git", "Handoff for Claude Code"]
+  handoff_lookback: 3
+
+checkers:
+  - name: shell_mech
+    module: linter.checkers.shell_mech
+    rule_id: R-SHELL-003
+    scenario: null            # базовый чекер, отдельного сценария v0 не имеет
+    description: >-
+      Механика shell-блока: длина, exit, плейсхолдеры, вложенные ограды.
+    config:
+      max_block_lines: 25
+      placeholder_pattern: '<[A-ZА-ЯЁ0-9][A-ZА-ЯЁ0-9_-]{1,}>'
+      exit_pattern: '(?:^|[;&|]\s*)exit\b'
+
+  - name: stop_provenance
+    module: linter.checkers.stop_provenance
+    rule_id: R-PROV-001
+    scenario: S-02
+    description: >-
+      Числовой литерал в блоке стоп-условия без соседнего провенанса.
+    config:
+      block_markers:
+        - 'стоп-услов'
+        - 'стоп услов'
+        - 'не должно двигаться'
+        - 'должно совпасть'
+        - 'stop[- ]condition'
+      block_max_lines: 20
+      provenance_window: 1
+      ignore_patterns:
+        - '§\s*\d+(\.\d+)*'
+        - '\b\d{4}-\d{2}-\d{2}\b'
+        - '\b(ADR|PDR|EMV-DL|S|К|L)-?\d+\b'
+        - '\bv\d+(\.\d+)*\b'
+      command_pattern: '`[^`]*\b(git|gh|wc|grep|rg|sed|awk|jq|curl|ls|cat|find|gcloud|adb|docker|kubectl|python3?|pip|test)\b[^`]*`'
+      awaiting_pattern: '(ожидан|ожидается|не проверено|не измерено|оценк|прогноз|предполож)'
+      output_pattern: '(выдач|вывод|измерено|провенанс|из выдачи|вернул|отдал|показал)'
+
+  - name: env_presupposition
+    module: linter.checkers.env_presupposition
+    rule_id: R-SHELL-003
+    scenario: S-03
+    description: >-
+      Предпосылочная форма без предшествующей измеряющей строки.
+      Список форм — данные: расширяется здесь, без правки модуля.
+    config:
+      forms:
+        - name: pip_install_outside_venv
+          kind: line_pattern
+          scope: document          # форма ловится и вне shell-блока: инструкция
+                                   # владельцу в прозе исполняется так же буквально
+          pattern: '\bpip3?\s+install\b'
+          absolved_by_line: '(\.venv/bin/pip|/venv/bin/pip|\bvenv/bin/pip|python3?\s+-m\s+venv|--python\s+\S*venv)'
+          absolved_by_above: '(python3?\s+-m\s+venv|source\s+\S*venv/bin/activate|\.\s+\S*venv/bin/activate|VIRTUAL_ENV=)'
+          # scope: document — «выше» ограничено окном, иначе один venv в начале
+          # документа оправдывает любую установку до конца файла
+          above_window: 3
+          message: >-
+            `pip install` без venv-пути и без предшествующей строки, создающей или
+            активирующей venv: в среде PEP 668 системный pip отказывает
+            (externally-managed-environment) — блок падает на предпосылке, а не на предмете
+        - name: gcloud_run_named_service
+          kind: line_pattern
+          scope: shell_block
+          pattern: '\bgcloud\s+run\s+(deploy|revisions|services\s+(update|describe|delete|update-traffic))\b'
+          absolved_by_above: '\bgcloud\s+run\s+services\s+list\b'
+          message: >-
+            `gcloud run …` с именем сервиса без предшествующего `gcloud run services list`:
+            имя взято по памяти, провал блока неотличим от отсутствия предмета
+        - name: adb_serial_without_devices
+          kind: line_pattern
+          scope: shell_block
+          pattern: '\badb\s+-s\s+\S+'
+          absolved_by_above: '\badb\s+devices\b'
+          message: >-
+            `adb -s <серийник>` без предшествующего `adb devices`:
+            серийник назван по памяти, подключение не измерено
+        - name: long_heredoc
+          kind: heredoc_length
+          scope: shell_block
+          max_lines: 25
+          message: >-
+            heredoc длиннее {max_lines} строк: предпосылка о том, что канал доставки
+            переживёт вставку такой длины, не измерена
+
+  - name: grep_vacuum
+    module: linter.checkers.grep_vacuum
+    rule_id: R-SMOKE-004
+    scenario: S-04
+    description: >-
+      Поиск, чей нулевой результат неотличим от отсутствия предмета.
+    config:
+      search_pattern: '(?<![\w-])(?:git\s+)?(?:grep|rg|ugrep)\b'
+      absolved_same_line: '(\|\|\s*(echo|printf)|(?:grep|ugrep)\s+(-\w*c\w*|--count)\b|\brg\s+(-\w*c\w*|--count|--count-matches)\b)'
+      absolved_in_block: '(test\s+-s\b|\[\s+-s\s|\[\[\s+-s\s|\bwc\s+-l\b|--count-matches\b)'
+      marker_lookahead: 1
+
+  - name: turn_end
+    module: linter.checkers.turn_end
+    rule_id: R-TURN-005
+    scenario: S-05
+    description: >-
+      Строка «Конец хода» отсутствует либо не называет требуемое слово владельца.
+      Структурная половина S-05; существо — manual.
+    config:
+      marker_pattern: '^\s*(?:[*_#>\-\s]*)\**\s*Конец хода\**\s*(?::|—|-)?\s*(.*)$'
+      min_significant_chars: 10
+      require_presence: true

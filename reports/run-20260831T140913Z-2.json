@@ -1,0 +1,69 @@
+{
+  "mode": "fast",
+  "timestamp": "20260831T140913Z",
+  "files_checked": 1,
+  "checkers": [
+    "shell_mech",
+    "stop_provenance",
+    "env_presupposition",
+    "grep_vacuum",
+    "turn_end"
+  ],
+  "findings": [
+    {
+      "file": "/tmp/sloboda-prompt.md",
+      "line": 10,
+      "checker": "env_presupposition",
+      "severity": "red",
+      "message": "[pip_install_outside_venv] `pip install` без venv-пути и без предшествующей строки, создающей или активирующей venv: в среде PEP 668 системный pip отказывает (externally-managed-environment) — блок падает на предпосылке, а не на предмете"
+    },
+    {
+      "file": "/tmp/sloboda-prompt.md",
+      "line": 14,
+      "checker": "stop_provenance",
+      "severity": "red",
+      "message": "число 25 в блоке стоп-условия без соседнего провенанса: рядом нет ни команды, его вернувшей, ни цитаты выдачи, ни пометки «ожидание»/«не проверено»"
+    },
+    {
+      "file": "/tmp/sloboda-prompt.md",
+      "line": 16,
+      "checker": "stop_provenance",
+      "severity": "red",
+      "message": "число 0 в блоке стоп-условия без соседнего провенанса: рядом нет ни команды, его вернувшей, ни цитаты выдачи, ни пометки «ожидание»/«не проверено»"
+    },
+    {
+      "file": "/tmp/sloboda-prompt.md",
+      "line": 18,
+      "checker": "env_presupposition",
+      "severity": "red",
+      "message": "[pip_install_outside_venv] `pip install` без venv-пути и без предшествующей строки, создающей или активирующей venv: в среде PEP 668 системный pip отказывает (externally-managed-environment) — блок падает на предпосылке, а не на предмете"
+    },
+    {
+      "file": "/tmp/sloboda-prompt.md",
+      "line": 20,
+      "checker": "stop_provenance",
+      "severity": "red",
+      "message": "число 8 в блоке стоп-условия без соседнего провенанса: рядом нет ни команды, его вернувшей, ни цитаты выдачи, ни пометки «ожидание»/«не проверено»"
+    },
+    {
+      "file": "/tmp/sloboda-prompt.md",
+      "line": 21,
+      "checker": "turn_end",
+      "severity": "red",
+      "message": "в handoff-артефакте нет строки «Конец хода»: точка, где нужно слово владельца, не названа — граница хода не проверяема"
+    }
+  ],
+  "meta": null,
+  "registry": null,
+  "reds": [
+    "/tmp/sloboda-prompt.md:14 stop_provenance",
+    "/tmp/sloboda-prompt.md:16 stop_provenance",
+    "/tmp/sloboda-prompt.md:20 stop_provenance",
+    "/tmp/sloboda-prompt.md:10 env_presupposition",
+    "/tmp/sloboda-prompt.md:18 env_presupposition",
+    "/tmp/sloboda-prompt.md:21 turn_end"
+  ],
+  "warnings": [],
+  "verdict": "КРАСНЫЙ",
+  "exit_code": 1
+}

@@ -1,0 +1,22 @@
+# Конфигурация полосы «Система». Пути — относительно этого файла либо абсолютные (~ раскрывается).
+vault:
+  # Клон вольта только читается. Перед прогоном --full владелец делает:
+  #   git -C <clone_path> pull --ff-only
+  clone_path: ~/vaults/theygrow-vault
+
+paths:
+  registry: rules/registry.yaml
+  scenarios: scenarios
+  manifest: linter/manifest.yaml
+  fixtures: linter/fixtures
+  reports: reports
+
+# Разбор канона: как из markdown-файла вольта вырезается «секция пункта».
+# Уровни (см. linter/canon.py):
+#   1 — markdown-заголовок (^#{1,6} )
+#   2 — «пункт»: строка, начинающаяся с ** и стоящая первой в абзац-блоке
+#       (перед ней пустая строка либо markdown-заголовок)
+#   3 — продолжение пункта: строка с ** внутри того же блока (в секцию входит)
+# Секция = от строки заголовка до строки перед следующим заголовком уровня <= 2.
+canon:
+  section_parser: bold_lead_v0
