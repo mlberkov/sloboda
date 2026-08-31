@@ -17,9 +17,20 @@ handoff-артефактах утверждение звучит иначе, и 
 опубликован, прошёл, доступен, виден, стоит, обновлён, доехало, занято,
 зелёный) при существительном-носителе (`carrier_nouns`: страница, сайт,
 репозиторий, ветка, релиз, пакет, сервис, аккаунт, коммит, магазин, индекс) —
-оба в одной строке и не дальше `pair_window` символов друг от друга: «при
-существительном» меряется соседством, порядок слов свободный. Оба списка —
-данные манифеста, расширяются без правки модуля.
+оба в одной строке, не дальше `pair_window` символов друг от друга и без
+границы клаузы между ними (`clause_break_pattern`): «при существительном»
+меряется соседством, порядок слов свободный. Оба списка — данные манифеста,
+расширяются без правки модуля.
+
+Граница клаузы — вторая мера соседства, заведена 2026-08-31 вместе с
+дополнением `carrier_nouns` носителями полосы «Система» (вольт, клон, канон,
+реестр, корпус, отчёт, прогон). Одного окна в символах оказалось мало: в строке
+«Ожидаемо: вердикт ЗЕЛЁНЫЙ, код выхода 0 — фактический вывод на предмете, прогон
+оркестратора» «зелёный» сказано о вердикте, а «прогон» стоит за тире, в другой
+клаузе — окно свело их в пару там, где утверждения о носителе нет. Дефект был в
+мере соседства, а не в новых носителях: та же строка ловилась бы на любом
+существительном списка. Порогом не чинится — сузить окно значит потерять
+настоящие формы («страница политики опубликована»).
 
 Прежние дословные формы сохранены как частный случай (`trigger_patterns`):
 формулировка пункта краснеет и там, где носитель в строке не назван.
@@ -85,6 +96,14 @@ DEFAULT_STATE_VERBS = [
     r"\bзел[ёе]н(?:ый|ая|ое|ые)\b",
 ]
 DEFAULT_PAIR_WINDOW = 60
+# Граница клаузы: соседство меряется внутри одного высказывания. Носитель и
+# глагол, разделённые тире, точкой с запятой, двоеточием или концом предложения,
+# стоят в разных клаузах и парой не являются — окно в символах их всё равно
+# сводит («вердикт ЗЕЛЁНЫЙ, код выхода 0 — … прогон оркестратора»: «зелёный»
+# сказано о вердикте, «прогон» — подпись соседней клаузы).
+# Точка засчитывается концом предложения, а не разделителем внутри числа:
+# «редакция 1.2 опубликована» — одна клауза.
+DEFAULT_CLAUSE_BREAK = r"[—–;:!?|]|\s-\s|\.(?:\s|$)"
 DEFAULT_SLOT = r"^[\s*_>#|-]*Каналы\s*\**\s*[:—–-]\s*(.+)$"
 DEFAULT_SOURCE_SPLIT = r",|;|\sи\s"
 DEFAULT_HEDGES = [
@@ -125,14 +144,24 @@ def _spans(line: str, patterns: list[re.Pattern]) -> list[tuple[int, int, str]]:
 
 
 def _pair(line: str, carriers: list[re.Pattern], verbs: list[re.Pattern],
-          window: int) -> str | None:
-    """Первая пара «носитель + глагол состояния» в пределах окна символов."""
+          window: int, clause_break: re.Pattern) -> str | None:
+    """Первая пара «носитель + глагол состояния» в пределах одной клаузы.
+
+    Соседство меряется двумя мерами сразу: окном в символах и отсутствием
+    границы клаузы между словами. Одного окна мало — 60 символов свободно
+    перешагивают тире и точку с запятой, и глагол одной клаузы становится в
+    пару к существительному соседней. Утверждение «клон обновлён» живёт внутри
+    клаузы: обе меры на настоящих формах не мешают, а на разорванных — спасают.
+    """
     nouns, states = _spans(line, carriers), _spans(line, verbs)
     best = None
     for ns, ne, ntxt in nouns:
         for vs, ve, vtxt in states:
             gap = vs - ne if vs >= ne else ns - ve
             if not 0 <= gap <= window:
+                continue
+            between = line[ne:vs] if vs >= ne else line[ve:ns]
+            if clause_break.search(between):
                 continue
             at = min(ns, vs)
             said = f"{ntxt} … {vtxt}" if ns < vs else f"{vtxt} … {ntxt}"
@@ -147,6 +176,7 @@ def check(text: str, config: dict) -> list[Finding]:
     carriers = _compile(config.get("carrier_nouns") or DEFAULT_CARRIERS)
     verbs = _compile(config.get("state_verbs") or DEFAULT_STATE_VERBS)
     pair_window = int(config.get("pair_window", DEFAULT_PAIR_WINDOW))
+    clause_break = re.compile(config.get("clause_break_pattern", DEFAULT_CLAUSE_BREAK))
     slot_re = re.compile(config.get("slot_pattern", DEFAULT_SLOT), re.IGNORECASE)
     split_re = re.compile(config.get("source_split", DEFAULT_SOURCE_SPLIT),
                           re.IGNORECASE)
@@ -163,7 +193,8 @@ def check(text: str, config: dict) -> list[Finding]:
         if (i + 1) in blocked:
             continue
         hit = next((t.search(line) for t in triggers if t.search(line)), None)
-        said = hit.group(0) if hit else _pair(line, carriers, verbs, pair_window)
+        said = hit.group(0) if hit else _pair(line, carriers, verbs, pair_window,
+                                              clause_break)
         if said is None:
             continue
         # Слот, стоящий на самой строке утверждения, не оправдывает её дважды:

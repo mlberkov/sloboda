@@ -11,6 +11,12 @@
 Находка изымается маркером `<!-- lint:ignore <checker> — причина -->` на
 предыдущей строке; изъятие без причины само даёт находку (linter/ignores.py).
 
+Чекер с непустым `config.gates` — гейт целостности входа: он прогоняется первым,
+и на его срабатывании названные в `gates` чекеры не запускаются вовсе. Их
+результат в отчёте — «не измерено», а не «ноль находок»: на деградировавшем
+входе у них нет предмета, и ноль находок был бы пустой выдачей при нулевом коде
+выхода (§11, R-VACUUM-007 — правило применено к самому линтеру).
+
 Выход ≠ 0 при любом красном. Отчёт — reports/run-<UTC-timestamp>.md и .json.
 """
 
@@ -38,6 +44,9 @@ KINDS = ("handoff", "spec")
 
 # Класс отказа: не вердикт чекера о предмете, а отказ опоры прогона.
 INFRA = "infra"
+
+# Итог сработавшего гейта целостности входа (linter/checkers/artifact_integrity.py).
+GATE_STATUS = "artifact_degraded"
 
 
 # ─────────────────────────────── загрузка ────────────────────────────────
@@ -114,18 +123,55 @@ def load_scenarios(scen_dir: str) -> list[dict]:
 
 # ─────────────────────────────── прогон ──────────────────────────────────
 
-def run_file(checkers, path: str) -> tuple[list[tuple[str, Finding]], int]:
+def split_gates(checkers) -> tuple[list, list]:
+    """Гейты (чекеры с непустым config.gates) и все остальные.
+
+    Гейт судит не предмет, а пригодность входа к измерению, поэтому идёт первым:
+    его вердикт решает, кого вообще запускать.
+    """
+    gates = [c for c in checkers if c["config"].get("gates")]
+    return gates, [c for c in checkers if not c["config"].get("gates")]
+
+
+def run_file(checkers, path: str) -> tuple[list[tuple[str, Finding]], int, dict]:
     """Находки по одному артефакту после применения маркеров изъятия.
 
-    Возвращает (находки, число применённых изъятий).
+    Гейты прогоняются первыми. Сработавший гейт гасит названные в его `gates`
+    чекеры: на деградировавшем входе у них нет предмета, и их ноль находок был
+    бы пустой выдачей при нулевом коде выхода — по §11 не отрицательным
+    результатом, а отказом канала. Погашенный чекер не запускается вовсе, и
+    отчёт несёт по нему «не измерено», а не «ноль находок».
+
+    Гашение считается по сырым находкам гейта, до маркеров изъятия: `lint:ignore`
+    снимает красный, но ограды в артефакте от этого не появляются — измерить
+    погашенное всё равно нечем.
+
+    Возвращает (находки, число применённых изъятий, {чекер: имя погасившего гейта}).
     """
     with open(path, "r", encoding="utf-8") as fh:
         text = fh.read()
+    gates, rest = split_gates(checkers)
     raw: list[Finding] = []
-    for ch in checkers:
+    not_measured: dict[str, str] = {}
+
+    for ch in gates:
+        got = ch["module"].check(text, ch["config"])
+        raw.extend(got)
+        if got:
+            for name in ch["config"]["gates"]:
+                not_measured.setdefault(name, ch["name"])
+
+    for ch in rest:
+        if ch["name"] in not_measured:
+            continue
         raw.extend(ch["module"].check(text, ch["config"]))
+
     kept, applied = ignores.apply(text, raw)
-    return [(path, f) for f in kept], applied
+    # Гасятся только объявленные в манифесте: гейт, назвавший чекер, которого на
+    # этом виде артефакта нет, не должен молча ничего значить.
+    live = {c["name"] for c in checkers}
+    not_measured = {k: v for k, v in not_measured.items() if k in live}
+    return [(path, f) for f in kept], applied, not_measured
 
 
 def repo_rel(path: str) -> str:
@@ -498,6 +544,9 @@ def meta_test(checkers, fixtures_dir: str):
     findings: list[tuple[str, Finding]] = []
 
     per_file: dict[str, list[Finding]] = {}
+    # {фикстура: {погашенный чекер: гейт}} — фикстура вправе быть деградировавшей:
+    # это предмет S-09, а не поломка полосы.
+    per_file_gated: dict[str, dict[str, str]] = {}
     applied_total = 0
     for colour in ("red", "green"):
         d = os.path.join(fixtures_dir, colour)
@@ -508,10 +557,11 @@ def meta_test(checkers, fixtures_dir: str):
             if not fn.endswith(".md"):
                 continue
             path = os.path.join(d, fn)
-            got, applied = run_file(checkers, path)
+            got, applied, gated = run_file(checkers, path)
             applied_total += applied
             findings.extend(got)
             per_file[path] = [f for _, f in got]
+            per_file_gated[path] = gated
 
     for ch in checkers:
         name = ch["name"]
@@ -523,6 +573,16 @@ def meta_test(checkers, fixtures_dir: str):
         if not os.path.isfile(red_path):
             reds.append(f"{name}: нет red-фикстуры {repo_rel(red_path)}")
             row["status"] = "no-red-fixture"
+        elif name in per_file_gated.get(red_path, {}):
+            # Собственная red-фикстура чекера деградировала так, что гейт погасил
+            # его же: «0 находок» здесь ничего не доказывает — и не должно читаться
+            # как «детектор не умеет краснеть». Это дефект фикстуры, не чекера.
+            gate = per_file_gated[red_path][name]
+            row["red_findings"] = None
+            row["status"] = "red-fixture-not-measured"
+            reds.append(f"{name}: на своей red-фикстуре {repo_rel(red_path)} погашен "
+                        f"гейтом {gate} — детектор не измерен, а не оправдан; "
+                        f"фикстуре вернуть ограды")
         else:
             own = [f for f in per_file.get(red_path, []) if f.checker == name]
             row["red_findings"] = len(own)
@@ -534,6 +594,13 @@ def meta_test(checkers, fixtures_dir: str):
         if not os.path.isfile(green_path):
             reds.append(f"{name}: нет green-фикстуры {repo_rel(green_path)}")
             row["status"] = "no-green-fixture"
+        elif name in per_file_gated.get(green_path, {}):
+            gate = per_file_gated[green_path][name]
+            row["green_findings"] = None
+            row["status"] = "green-fixture-not-measured"
+            reds.append(f"{name}: на своей green-фикстуре {repo_rel(green_path)} погашен "
+                        f"гейтом {gate} — «ложных срабатываний нет» здесь не измерено, "
+                        f"а не подтверждено; фикстуре вернуть ограды")
         else:
             own = [f for f in per_file.get(green_path, []) if f.checker == name]
             row["green_findings"] = len(own)
@@ -541,6 +608,8 @@ def meta_test(checkers, fixtures_dir: str):
                 reds.append(f"{name}: покраснел на своей green-фикстуре "
                             f"{repo_rel(green_path)} ({len(own)} наход.) — ложное срабатывание")
                 row["status"] = "green-fixture-red"
+        row["not_measured"] = sorted(per_file_gated.get(red_path, {})
+                                     | per_file_gated.get(green_path, {}))
         rows.append(row)
 
     # Изъятие без причины в собственных фикстурах полосы — дефект полосы, не
@@ -560,8 +629,14 @@ def meta_test(checkers, fixtures_dir: str):
                 warns.append(f"{repo_rel(path)}:{f.line} чужой чекер {f.checker} "
                              f"покраснел на green-фикстуре — {f.message}")
 
+    # Погашенные чекеры по фикстурам — в отчёт: «не измерено» на фикстуре видно
+    # так же, как на живом артефакте.
+    gated_rows = [{"file": repo_rel(path), "checker": name, "gate": gate}
+                  for path, g in sorted(per_file_gated.items())
+                  for name, gate in sorted(g.items())]
+
     return {"rows": rows, "reds": reds, "warnings": warns, "findings": findings,
-            "ignores_applied": applied_total}
+            "ignores_applied": applied_total, "not_measured": gated_rows}
 
 
 # ──────────────────────────────── отчёт ──────────────────────────────────
@@ -612,6 +687,20 @@ def write_report(config: dict, payload: dict) -> tuple[str, str]:
                      f"{o['matched']} | {o['note'] or '—'} |")
         L.append("")
 
+    if payload.get("not_measured"):
+        L.append("## Не измерено")
+        L.append("")
+        L.append("Чекер погашен гейтом целостности входа: предмета для него в "
+                 "артефакте нет. Это «не измерено», а не «ноль находок» — "
+                 "пустая выдача при нулевом коде выхода не отрицательный "
+                 "результат (§11, R-VACUUM-007).")
+        L.append("")
+        L.append("| артефакт | чекер | гейт |")
+        L.append("|---|---|---|")
+        for r in payload["not_measured"]:
+            L.append(f"| {r['file']} | {r['checker']} | {r['gate']} |")
+        L.append("")
+
     if payload.get("infra"):
         L.append("## Инфраструктура")
         L.append("")
@@ -631,8 +720,10 @@ def write_report(config: dict, payload: dict) -> tuple[str, str]:
         L.append("| чекер | red-фикстура | green-фикстура | итог |")
         L.append("|---|---|---|---|")
         for r in payload["meta"]:
-            L.append(f"| {r['checker']} | {r['red_findings']} | "
-                     f"{r['green_findings']} | {r['status']} |")
+            def cell(v):
+                return "не измерено" if v is None else str(v)
+            L.append(f"| {r['checker']} | {cell(r['red_findings'])} | "
+                     f"{cell(r['green_findings'])} | {r['status']} |")
         L.append("")
 
     if payload.get("registry"):
@@ -707,6 +798,7 @@ def main(argv=None) -> int:
     meta_rows = None
     reg_rows = None
     infra_rows: list[dict] = []
+    not_measured: list[dict] = []
     ignores_applied = 0
     files_checked = 0
 
@@ -716,9 +808,26 @@ def main(argv=None) -> int:
                 reds.append(f"нет файла: {path}")
                 continue
             files_checked += 1
-            got, applied = run_file(checkers, path)
+            got, applied, gated = run_file(checkers, path)
             ignores_applied += applied
             findings.extend(got)
+            for name, gate in sorted(gated.items()):
+                not_measured.append({"file": repo_rel(path), "checker": name,
+                                     "gate": gate})
+            if gated:
+                # Отказала опора прогона, а не предмет под чекером: класс infra.
+                # Строка стоит рядом со свежестью клона — там же, где полоса
+                # называет всё, что не измерено, а не подтверждено.
+                by_gate: dict[str, list[str]] = {}
+                for name, gate in gated.items():
+                    by_gate.setdefault(gate, []).append(name)
+                for gate, names in sorted(by_gate.items()):
+                    msg = (f"{repo_rel(path)}: вход деградировал (гейт {gate}) — "
+                           f"не измерены: {', '.join(sorted(names))}")
+                    infra_rows.append({"class": INFRA, "check": gate,
+                                       "status": GATE_STATUS, "file": repo_rel(path),
+                                       "not_measured": sorted(names), "message": msg})
+                    reds.append(f"[{INFRA}] {GATE_STATUS}: {msg}")
         # В сводке — только адрес находки: сообщение уже стоит в списке выше.
         for path, f in findings:
             addr = f"{repo_rel(path)}:{f.line} {f.checker}"
@@ -733,6 +842,10 @@ def main(argv=None) -> int:
             if os.path.isdir(os.path.join(fixtures, c))
             for f in os.listdir(os.path.join(fixtures, c)) if f.endswith(".md"))
         meta_rows = mt["rows"]
+        # На фикстурах гейт строки infra не даёт: фикстура — инструмент полосы,
+        # а не артефакт под измерением, и её деградация есть предмет S-09.
+        # Судит её мета-тест: погашенный на собственной фикстуре чекер там красный.
+        not_measured.extend(mt["not_measured"])
         ignores_applied += mt["ignores_applied"]
         reds.extend(mt["reds"])
         warnings.extend(mt["warnings"])
@@ -767,6 +880,7 @@ def main(argv=None) -> int:
                      for p, f in sorted(findings, key=lambda x: (x[0], x[1].line,
                                                                  x[1].checker))],
         "observations": observations,
+        "not_measured": not_measured,
         "meta": meta_rows,
         "registry": reg_rows,
         "infra": infra_rows,
@@ -795,13 +909,17 @@ def main(argv=None) -> int:
     for o in observations:
         print(f"- наблюдение [{o['class']}]: {o['file']}:{o['line']} {o['checker']} "
               f"— совпало находок: {o['matched']}")
+    for r in not_measured:
+        print(f"- не измерено: {r['file']} {r['checker']} — погашен гейтом {r['gate']}")
     for r in infra_rows:
         print(f"- инфраструктура [{r['class']}]: {r['check']} — {r['status']}"
               + (f"; {r['message']}" if r.get("message") else ""))
     if meta_rows:
+        def cell(v):
+            return "не-измерено" if v is None else v
         print("- мета-тест: " + "; ".join(
-            f"{r['checker']} red={r['red_findings']} green={r['green_findings']} "
-            f"[{r['status']}]" for r in meta_rows))
+            f"{r['checker']} red={cell(r['red_findings'])} "
+            f"green={cell(r['green_findings'])} [{r['status']}]" for r in meta_rows))
     if reg_rows:
         print("- реестр ↔ вольт: " + "; ".join(
             f"{r['rule_id']} {str(r['recomputed'])[:8]} "
