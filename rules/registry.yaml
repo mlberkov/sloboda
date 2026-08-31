@@ -12,7 +12,11 @@
 
 version: 0
 computed_at: "2026-08-31T00:00:00Z"
-computed_from: "01-theygrow/operations/theygrow-delivery-contract.md §11"
+computed_from: "01-theygrow/operations/theygrow-delivery-contract.md §11 и §7"
+# §7 «Формат каждого ответа оркестратора» вошёл 2026-08-31 вместе с
+# R-OWNERBLOCK-006: пункт «Действия владельца — отдельным блоком, а не прозой»
+# лежит в §7 (строка 113), а не в §11, как назван в поводе и в логе вольта
+# (00-system/log.md:2235). Заголовок и хэш взяты по месту, не по названию раздела.
 
 rules:
   - rule_id: R-PROV-001
@@ -63,3 +67,16 @@ rules:
       lines_at_binding: "188-189"
     content_hash: "445ed61c9b73d5da3360401948caa248675c29c4f73b5c83db095db0e3170397"
     classes: [К4]
+
+  - rule_id: R-OWNERBLOCK-006
+    source:
+      file: 01-theygrow/operations/theygrow-delivery-contract.md
+      section: "§7"
+      heading: "Действия владельца — отдельным блоком, а не прозой (добавлено 2026-08-29, owner-акт; повод — разбор доставки политики в milestone-чате NAV)."
+      lines_at_binding: "113-115"
+    content_hash: "e8ab5de80abcfcb4c5508ab820cd58f56449a2ece196e98924ef1509d11453b0"
+    classes: [К4]
+    note: >-
+      Секция включает абзац «Жёсткие ограничения: после handoff-блока — никакого
+      нового анализа…» того же блока прозы: по разбору bold_lead_v0 она кончается
+      перед следующим пунктом «Область действия §7» (строка 117).
