@@ -1,0 +1,791 @@
+{
+  "mode": "full",
+  "kind": "handoff",
+  "timestamp": "20260831T172026Z",
+  "files_checked": 28,
+  "checkers": [
+    "artifact_integrity",
+    "shell_mech",
+    "stop_provenance",
+    "env_presupposition",
+    "grep_vacuum",
+    "turn_end",
+    "smoke_line",
+    "live_channel_slot",
+    "owner_action_block",
+    "detector_disposition",
+    "run_id_filter",
+    "download_dir",
+    "gh_repo_scope",
+    "whitespace_diff"
+  ],
+  "checkers_skipped": [],
+  "ignores_applied": 0,
+  "findings": [
+    {
+      "file": "linter/fixtures/red/artifact_integrity.md",
+      "line": 7,
+      "checker": "artifact_integrity",
+      "severity": "red",
+      "message": "деградировавший вход: в handoff-артефакте ноль огороженных блоков, но есть раздел «Ваши действия» — ограды утеряны: чекеры, опирающиеся на блоки (smoke_line, stop_provenance, shell_mech, env_presupposition, grep_vacuum, run_id_filter, download_dir, gh_repo_scope, whitespace_diff), измерены быть не могут. Их ноль находок был бы пустой выдачей при нулевом коде выхода, а она по §11 не отрицательный результат: сверка объявляется не выполненной, вердикт по ней не строится. Владельцу — добыть артефакт другим путём (исходная выдача хода, файл без пересборки разметки) и повторить прогон",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/artifact_integrity.md",
+      "line": 9,
+      "checker": "owner_action_block",
+      "severity": "red",
+      "message": "пункт «Ваших действий» поручает исполнить команду («Прогнать»), но огороженного блока нет ни в нём, ни в следующем пункте: поручение прозой владелец собирает по памяти либо пропускает, исполнив копируемый блок выше и сочтя ход закрытым — §7 требует блок, а не прозу",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/artifact_integrity.md",
+      "line": 11,
+      "checker": "owner_action_block",
+      "severity": "red",
+      "message": "пункт «Ваших действий» поручает исполнить команду («закоммитить»), но огороженного блока нет ни в нём, ни в следующем пункте: поручение прозой владелец собирает по памяти либо пропускает, исполнив копируемый блок выше и сочтя ход закрытым — §7 требует блок, а не прозу",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/detector_disposition.md",
+      "line": 3,
+      "checker": "detector_disposition",
+      "severity": "red",
+      "message": "ход вводит новый детектор («гард введён»), но не называет: мутация, предсказанная диспозиция, наблюдённая диспозиция — приёмка по одному предсказанию и есть отказ, ради которого пункт заведён: детектор, не покрасневший на своей мутации, неотличим от детектора, у которого нет предмета",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/download_dir.md",
+      "line": 10,
+      "checker": "download_dir",
+      "severity": "red",
+      "message": "выгрузка артефактов без `-D`/`--dir`: каталог назначения — текущий, то есть рабочее дерево; артефакты лягут в репозиторий, мимо `.gitignore`, и уедут в коммит на первом `git add -A` (§11 требует явный каталог вне дерева, допустимых попаданий нет)",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/download_dir.md",
+      "line": 11,
+      "checker": "download_dir",
+      "severity": "red",
+      "message": "выгрузка в `artifacts/release` — относительный путь, то есть внутрь рабочего дерева: `-D` назван, но каталог назначения остался в репозитории (§11 требует путь вне дерева, например `-D /tmp/…`)",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/env_presupposition.md",
+      "line": 11,
+      "checker": "env_presupposition",
+      "severity": "red",
+      "message": "[pip_install_outside_venv] `pip install` без venv-пути и без предшествующей строки, создающей или активирующей venv: в среде PEP 668 системный pip отказывает (externally-managed-environment) — блок падает на предпосылке, а не на предмете",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/env_presupposition.md",
+      "line": 12,
+      "checker": "env_presupposition",
+      "severity": "red",
+      "message": "[gcloud_run_named_service] `gcloud run …` с именем сервиса без предшествующего `gcloud run services list`: имя взято по памяти, провал блока неотличим от отсутствия предмета",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/env_presupposition.md",
+      "line": 13,
+      "checker": "env_presupposition",
+      "severity": "red",
+      "message": "[adb_serial_without_devices] `adb -s <серийник>` без предшествующего `adb devices`: серийник назван по памяти, подключение не измерено",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/env_presupposition.md",
+      "line": 20,
+      "checker": "turn_end",
+      "severity": "red",
+      "message": "в handoff-артефакте нет строки «Конец хода»: точка, где нужно слово владельца, не названа — граница хода не проверяема",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/gh_repo_scope.md",
+      "line": 12,
+      "checker": "gh_repo_scope",
+      "severity": "red",
+      "message": "`gh` вызван после ухода из рабочего дерева (`cd /tmp` на строке 11) без `--repo`: вне git-контекста `gh` не определяет репозиторий и падает на этом, а не на предмете — провал блока неотличим от отсутствия предмета",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/gh_repo_scope.md",
+      "line": 13,
+      "checker": "gh_repo_scope",
+      "severity": "red",
+      "message": "`gh` вызван после ухода из рабочего дерева (`cd /tmp` на строке 11) без `--repo`: вне git-контекста `gh` не определяет репозиторий и падает на этом, а не на предмете — провал блока неотличим от отсутствия предмета",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/grep_vacuum.md",
+      "line": 6,
+      "checker": "grep_vacuum",
+      "severity": "red",
+      "message": "поиск без анти-вакуумной ноги: нулевая выдача неотличима от отсутствия предмета, несовпавшего шаблона и пустого входа — нужен `|| echo`-маркер отрицания либо счёт попаданий на измеренно непустом входе",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/grep_vacuum.md",
+      "line": 7,
+      "checker": "grep_vacuum",
+      "severity": "red",
+      "message": "поиск без анти-вакуумной ноги: нулевая выдача неотличима от отсутствия предмета, несовпавшего шаблона и пустого входа — нужен `|| echo`-маркер отрицания либо счёт попаданий на измеренно непустом входе",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/grep_vacuum.md",
+      "line": 12,
+      "checker": "turn_end",
+      "severity": "red",
+      "message": "в handoff-артефакте нет строки «Конец хода»: точка, где нужно слово владельца, не названа — граница хода не проверяема",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/live_channel_slot.md",
+      "line": 9,
+      "checker": "live_channel_slot",
+      "severity": "red",
+      "message": "утверждение о состоянии живого канала («доставлено») со слотом на 1 источник(ах) «чтение страницы инструментом fetch»: пункт требует не менее 2 независимых каналов и обеих выдач — иначе кэш канала чтения выдаёт устаревший предмет при соблюдённом провенансе",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/live_channel_slot.md",
+      "line": 13,
+      "checker": "live_channel_slot",
+      "severity": "red",
+      "message": "утверждение о состоянии живого канала («не доехало») без слота «Каналы: X, Y»: независимость второго канала из текста хода не выводится — повторное обращение к тому же адресу читается как второй канал",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/live_channel_slot.md",
+      "line": 17,
+      "checker": "live_channel_slot",
+      "severity": "red",
+      "message": "утверждение о состоянии живого канала («Страница … опубликована») без слота «Каналы: X, Y»: независимость второго канала из текста хода не выводится — повторное обращение к тому же адресу читается как второй канал",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/owner_action_block.md",
+      "line": 10,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "исполняемый блок выдан владельцу без строки ожидания его вывода: ни в том же абзаце, ни в следующем нет «Ожидаемо: …» с ожиданием не короче 10 значащих символов — владелец получает команду и не получает, с чем сравнить её вывод (§7: пункт называет, какой результат считается ожидаемым)",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/owner_action_block.md",
+      "line": 14,
+      "checker": "owner_action_block",
+      "severity": "red",
+      "message": "пункт «Ваших действий» поручает исполнить команду («закоммитить»), но огороженного блока нет ни в нём, ни в следующем пункте: поручение прозой владелец собирает по памяти либо пропускает, исполнив копируемый блок выше и сочтя ход закрытым — §7 требует блок, а не прозу",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/run_id_filter.md",
+      "line": 11,
+      "checker": "run_id_filter",
+      "severity": "red",
+      "message": "прогон отобран позицией (`--limit 1`), а фильтра по событию (`--event`) и по sha (`--commit`/`headSha`) в блоке нет: когда на ветке возможны push и `workflow_dispatch` на одном sha, «последний» вернёт прогон чужого события — вердикт будет построен не по тому предмету",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/run_id_filter.md",
+      "line": 12,
+      "checker": "run_id_filter",
+      "severity": "red",
+      "message": "прогон отобран позицией (`--limit 1`), а фильтра по событию (`--event`) и по sha (`--commit`/`headSha`) в блоке нет: когда на ветке возможны push и `workflow_dispatch` на одном sha, «последний» вернёт прогон чужого события — вердикт будет построен не по тому предмету",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/shell_mech.md",
+      "line": 5,
+      "checker": "shell_mech",
+      "severity": "red",
+      "message": "shell-блок длиной 28 строк (> 25): не переживает вставку и разметку ответа",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/shell_mech.md",
+      "line": 7,
+      "checker": "shell_mech",
+      "severity": "red",
+      "message": "плейсхолдер <PROJECT_ID>: блок не исполним как есть — значение генерируется командой, а не пишется текстом",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/shell_mech.md",
+      "line": 8,
+      "checker": "shell_mech",
+      "severity": "red",
+      "message": "плейсхолдер <REGION-NAME>: блок не исполним как есть — значение генерируется командой, а не пишется текстом",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/shell_mech.md",
+      "line": 11,
+      "checker": "shell_mech",
+      "severity": "red",
+      "message": "вложенная ограда ``` внутри shell-блока: разметка ответа рвёт блок на месте вставки",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/shell_mech.md",
+      "line": 13,
+      "checker": "shell_mech",
+      "severity": "red",
+      "message": "вложенная ограда ``` внутри shell-блока: разметка ответа рвёт блок на месте вставки",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/shell_mech.md",
+      "line": 33,
+      "checker": "shell_mech",
+      "severity": "red",
+      "message": "`exit` в блоке: закрывает оболочку владельца, остаток блока не исполняется и об этом не сообщается",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/shell_mech.md",
+      "line": 40,
+      "checker": "shell_mech",
+      "severity": "red",
+      "message": "[cd_without_chain] `cd D:\\Obsidian\\TheyGrow` — `cd` отдельной командой, не сцепленный `&&` со следующей (3 команд ниже по блоку): при провале `cd` остаток блока исполняется в чужом каталоге и печатает правдоподобный успех — провал неотличим от успеха",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/shell_mech.md",
+      "line": 40,
+      "checker": "shell_mech",
+      "severity": "red",
+      "message": "[windows_path] путь Windows-вида `D:\\Obsidian\\TheyGrow` в блоке, помеченном как исполняемый в bash/WSL: оболочка съедает бэкслеши, путь до каталога не доходит и `cd` падает — остаток блока отрабатывает в текущем каталоге и печатает правдоподобный успех; в WSL диск адресуется как `/mnt/d/…`",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/shell_mech.md",
+      "line": 45,
+      "checker": "turn_end",
+      "severity": "red",
+      "message": "в handoff-артефакте нет строки «Конец хода»: точка, где нужно слово владельца, не названа — граница хода не проверяема",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/smoke_line.md",
+      "line": 13,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "ожидание вывода блока («Ожидаемый вывод —») не цитирует фактический вывод на предмете и не помечено «не исполнялась — первый прогон у владельца»: ожидание из головы неотличимо от измеренного — перед выдачей блок исполняется на предмете, и ожидаемый вывод берётся из этого исполнения",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/smoke_line.md",
+      "line": 21,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "исполняемый блок выдан владельцу без строки ожидания его вывода: ни в том же абзаце, ни в следующем нет «Ожидаемо: …» с ожиданием не короче 10 значащих символов — владелец получает команду и не получает, с чем сравнить её вывод (§7: пункт называет, какой результат считается ожидаемым)",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/stop_provenance.md",
+      "line": 7,
+      "checker": "stop_provenance",
+      "severity": "red",
+      "message": "число 7 в блоке стоп-условия без соседнего провенанса: рядом нет ни команды, его вернувшей, ни цитаты выдачи, ни пометки «ожидание»/«не проверено»",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/stop_provenance.md",
+      "line": 8,
+      "checker": "stop_provenance",
+      "severity": "red",
+      "message": "число 4 в блоке стоп-условия без соседнего провенанса: рядом нет ни команды, его вернувшей, ни цитаты выдачи, ни пометки «ожидание»/«не проверено»",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/stop_provenance.md",
+      "line": 9,
+      "checker": "stop_provenance",
+      "severity": "red",
+      "message": "число 12 в блоке стоп-условия без соседнего провенанса: рядом нет ни команды, его вернувшей, ни цитаты выдачи, ни пометки «ожидание»/«не проверено»",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/turn_end.md",
+      "line": 5,
+      "checker": "turn_end",
+      "severity": "red",
+      "message": "«Конец хода» не называет требуемое слово владельца: после двоеточия 2 значащих символов (порог 10)",
+      "observation": null
+    },
+    {
+      "file": "linter/fixtures/red/whitespace_diff.md",
+      "line": 11,
+      "checker": "whitespace_diff",
+      "severity": "red",
+      "message": "счётчик правки (`git diff --stat`) без диффа с фильтром пробелов в том же блоке: равное число вставок и удалений — подпись построчной перезаписи (концы строк, кодировка, нормализация редактором), а не правки; прежде утверждения о содержании прогоняется `git diff -w --ignore-cr-at-eol`, иначе настоящая правка прячется в шуме перезаписи, а перезапись читается как правка",
+      "observation": null
+    }
+  ],
+  "observations": [
+    {
+      "file": "calibration/session.md",
+      "line": 131,
+      "checker": "owner_action_block",
+      "class": "self_reference",
+      "note": "Пункт пакета на заведение самого owner_action_block: глаголы «прогнать», «закоммитить» стоят в нём как цитата словаря чекера, а не как поручение владельцу. Ложное срабатывание; порогом не чинится.",
+      "matched": 0
+    },
+    {
+      "file": "calibration/session.md",
+      "line": 113,
+      "checker": "live_channel_slot",
+      "class": "self_reference",
+      "note": "Тот же класс, найден переписанным live_channel_slot 2026-08-31: строка предсказания диспозиции цитирует формы «Публикация прошла», «репозиторий создан» как примеры, а не утверждает о носителе. Ложное срабатывание; порогом не чинится.",
+      "matched": 0
+    }
+  ],
+  "not_measured": [
+    {
+      "file": "linter/fixtures/red/artifact_integrity.md",
+      "checker": "download_dir",
+      "gate": "artifact_integrity"
+    },
+    {
+      "file": "linter/fixtures/red/artifact_integrity.md",
+      "checker": "env_presupposition",
+      "gate": "artifact_integrity"
+    },
+    {
+      "file": "linter/fixtures/red/artifact_integrity.md",
+      "checker": "gh_repo_scope",
+      "gate": "artifact_integrity"
+    },
+    {
+      "file": "linter/fixtures/red/artifact_integrity.md",
+      "checker": "grep_vacuum",
+      "gate": "artifact_integrity"
+    },
+    {
+      "file": "linter/fixtures/red/artifact_integrity.md",
+      "checker": "run_id_filter",
+      "gate": "artifact_integrity"
+    },
+    {
+      "file": "linter/fixtures/red/artifact_integrity.md",
+      "checker": "shell_mech",
+      "gate": "artifact_integrity"
+    },
+    {
+      "file": "linter/fixtures/red/artifact_integrity.md",
+      "checker": "smoke_line",
+      "gate": "artifact_integrity"
+    },
+    {
+      "file": "linter/fixtures/red/artifact_integrity.md",
+      "checker": "stop_provenance",
+      "gate": "artifact_integrity"
+    },
+    {
+      "file": "linter/fixtures/red/artifact_integrity.md",
+      "checker": "whitespace_diff",
+      "gate": "artifact_integrity"
+    }
+  ],
+  "meta": [
+    {
+      "checker": "artifact_integrity",
+      "red_findings": 1,
+      "green_findings": 0,
+      "status": "ok",
+      "not_measured": [
+        "download_dir",
+        "env_presupposition",
+        "gh_repo_scope",
+        "grep_vacuum",
+        "run_id_filter",
+        "shell_mech",
+        "smoke_line",
+        "stop_provenance",
+        "whitespace_diff"
+      ]
+    },
+    {
+      "checker": "shell_mech",
+      "red_findings": 8,
+      "green_findings": 0,
+      "status": "ok",
+      "not_measured": []
+    },
+    {
+      "checker": "stop_provenance",
+      "red_findings": 3,
+      "green_findings": 0,
+      "status": "ok",
+      "not_measured": []
+    },
+    {
+      "checker": "env_presupposition",
+      "red_findings": 3,
+      "green_findings": 0,
+      "status": "ok",
+      "not_measured": []
+    },
+    {
+      "checker": "grep_vacuum",
+      "red_findings": 2,
+      "green_findings": 0,
+      "status": "ok",
+      "not_measured": []
+    },
+    {
+      "checker": "turn_end",
+      "red_findings": 1,
+      "green_findings": 0,
+      "status": "ok",
+      "not_measured": []
+    },
+    {
+      "checker": "smoke_line",
+      "red_findings": 2,
+      "green_findings": 0,
+      "status": "ok",
+      "not_measured": []
+    },
+    {
+      "checker": "live_channel_slot",
+      "red_findings": 3,
+      "green_findings": 0,
+      "status": "ok",
+      "not_measured": []
+    },
+    {
+      "checker": "owner_action_block",
+      "red_findings": 1,
+      "green_findings": 0,
+      "status": "ok",
+      "not_measured": []
+    },
+    {
+      "checker": "detector_disposition",
+      "red_findings": 1,
+      "green_findings": 0,
+      "status": "ok",
+      "not_measured": []
+    },
+    {
+      "checker": "run_id_filter",
+      "red_findings": 2,
+      "green_findings": 0,
+      "status": "ok",
+      "not_measured": []
+    },
+    {
+      "checker": "download_dir",
+      "red_findings": 2,
+      "green_findings": 0,
+      "status": "ok",
+      "not_measured": []
+    },
+    {
+      "checker": "gh_repo_scope",
+      "red_findings": 2,
+      "green_findings": 0,
+      "status": "ok",
+      "not_measured": []
+    },
+    {
+      "checker": "whitespace_diff",
+      "red_findings": 1,
+      "green_findings": 0,
+      "status": "ok",
+      "not_measured": []
+    }
+  ],
+  "registry": [
+    {
+      "rule_id": "R-PROV-001",
+      "file": "01-theygrow/operations/theygrow-delivery-contract.md",
+      "heading": "Провенанс утверждений оркестратора (добавлено 2026-08-18 по разбору ступени L2).",
+      "stored": "7364c332f12274cb11f6230408a4f72b35018157037743d51a8c4c9b89640c50",
+      "recomputed": "7364c332f12274cb11f6230408a4f72b35018157037743d51a8c4c9b89640c50",
+      "lines": "176-180",
+      "scenarios": [
+        "S-02"
+      ],
+      "scenarios_secondary": [
+        "S-10",
+        "S-13",
+        "S-19"
+      ],
+      "status": "ok"
+    },
+    {
+      "rule_id": "R-LIVE-002",
+      "file": "01-theygrow/operations/theygrow-delivery-contract.md",
+      "heading": "Утверждение о живом канале — после второго канала (добавлено 2026-08-28, разбор milestone UIP; уточняет «Провенанс утверждений оркестратора» выше).",
+      "stored": "a61b75459b65567fbc457df75166a382e382e59ba8555ffc36a1bf70172f2bbe",
+      "recomputed": "a61b75459b65567fbc457df75166a382e382e59ba8555ffc36a1bf70172f2bbe",
+      "lines": "214-214",
+      "scenarios": [
+        "S-01"
+      ],
+      "scenarios_secondary": [],
+      "status": "ok"
+    },
+    {
+      "rule_id": "R-SHELL-003",
+      "file": "01-theygrow/operations/theygrow-delivery-contract.md",
+      "heading": "Исполнимость shell-блока (добавлено 2026-08-18 по разбору ступени L2).",
+      "stored": "48f5723edf7eebfba2508388937a8fc90d720cd73392336f157c2801fb110850",
+      "recomputed": "48f5723edf7eebfba2508388937a8fc90d720cd73392336f157c2801fb110850",
+      "lines": "184-184",
+      "scenarios": [
+        "S-03",
+        "S-04",
+        "S-07"
+      ],
+      "scenarios_secondary": [
+        "S-11",
+        "S-12"
+      ],
+      "status": "ok"
+    },
+    {
+      "rule_id": "R-SMOKE-004",
+      "file": "01-theygrow/operations/theygrow-delivery-contract.md",
+      "heading": "Строка смоука — детектор и исполняется на предмете до выдачи (добавлено 2026-08-23, разбор milestone PPR).",
+      "stored": "5f9a372423d35979038753a51bafb5c1e7a19763b3ca215ff6d575cfa84c541a",
+      "recomputed": "5f9a372423d35979038753a51bafb5c1e7a19763b3ca215ff6d575cfa84c541a",
+      "lines": "199-200",
+      "scenarios": [
+        "S-06"
+      ],
+      "scenarios_secondary": [
+        "S-04",
+        "S-15"
+      ],
+      "status": "ok"
+    },
+    {
+      "rule_id": "R-TURN-005",
+      "file": "01-theygrow/operations/theygrow-delivery-contract.md",
+      "heading": "Конец хода — точка, где нужно слово владельца (добавлено 2026-08-25, разбор сессии security-каденции).",
+      "stored": "445ed61c9b73d5da3360401948caa248675c29c4f73b5c83db095db0e3170397",
+      "recomputed": "445ed61c9b73d5da3360401948caa248675c29c4f73b5c83db095db0e3170397",
+      "lines": "188-189",
+      "scenarios": [
+        "S-05"
+      ],
+      "scenarios_secondary": [],
+      "status": "ok"
+    },
+    {
+      "rule_id": "R-VACUUM-007",
+      "file": "01-theygrow/operations/theygrow-delivery-contract.md",
+      "heading": "Пустая выдача при нулевом коде выхода — отказ канала (добавлено 2026-08-22, разбор закрытия L3).",
+      "stored": "99ac8b1bfe56d068373dc3306ca3259738e310459eb3de7dd66792bdeb4bcc1d",
+      "recomputed": "99ac8b1bfe56d068373dc3306ca3259738e310459eb3de7dd66792bdeb4bcc1d",
+      "lines": "202-202",
+      "scenarios": [
+        "S-09"
+      ],
+      "scenarios_secondary": [],
+      "status": "ok"
+    },
+    {
+      "rule_id": "R-OWNERBLOCK-006",
+      "file": "01-theygrow/operations/theygrow-delivery-contract.md",
+      "heading": "Действия владельца — отдельным блоком, а не прозой (добавлено 2026-08-29, owner-акт; повод — разбор доставки политики в milestone-чате NAV).",
+      "stored": "e8ab5de80abcfcb4c5508ab820cd58f56449a2ece196e98924ef1509d11453b0",
+      "recomputed": "e8ab5de80abcfcb4c5508ab820cd58f56449a2ece196e98924ef1509d11453b0",
+      "lines": "113-115",
+      "scenarios": [
+        "S-08"
+      ],
+      "scenarios_secondary": [
+        "S-09",
+        "S-17"
+      ],
+      "status": "ok"
+    },
+    {
+      "rule_id": "R-RUNID-008",
+      "file": "01-theygrow/operations/theygrow-delivery-contract.md",
+      "heading": "Идентификатор прогона — фильтром, не позицией (добавлено 2026-08-22, разбор закрытия L3; уточняет «Провенанс утверждений оркестратора» выше).",
+      "stored": "719d86bae4b995041288c882c34cd31bf90c5d3bfcdf1a39c77ea26bd221f4ae",
+      "recomputed": "719d86bae4b995041288c882c34cd31bf90c5d3bfcdf1a39c77ea26bd221f4ae",
+      "lines": "191-191",
+      "scenarios": [
+        "S-10"
+      ],
+      "scenarios_secondary": [],
+      "status": "ok"
+    },
+    {
+      "rule_id": "R-DOWNLOAD-009",
+      "file": "01-theygrow/operations/theygrow-delivery-contract.md",
+      "heading": "Выгрузка артефактов — вне рабочего дерева (добавлено 2026-08-22, разбор закрытия L3; дополняет «Исполнимость shell-блока» выше).",
+      "stored": "7552baff15a260f2e1eb72ca42d1645a5d947db671b5d7ec7234839e716ec23a",
+      "recomputed": "7552baff15a260f2e1eb72ca42d1645a5d947db671b5d7ec7234839e716ec23a",
+      "lines": "204-204",
+      "scenarios": [
+        "S-11"
+      ],
+      "scenarios_secondary": [],
+      "status": "ok"
+    },
+    {
+      "rule_id": "R-GHREPO-010",
+      "file": "01-theygrow/operations/theygrow-delivery-contract.md",
+      "heading": "`gh` вне рабочего дерева — с явным `--repo` (добавлено 2026-08-23, разбор milestone PPR).",
+      "stored": "01819a919197628aaac109b478fa7afe3a0e49f04aca63b8c997f99b581a5fad",
+      "recomputed": "01819a919197628aaac109b478fa7afe3a0e49f04aca63b8c997f99b581a5fad",
+      "lines": "206-206",
+      "scenarios": [
+        "S-12"
+      ],
+      "scenarios_secondary": [],
+      "status": "ok"
+    },
+    {
+      "rule_id": "R-WHITESPACE-011",
+      "file": "01-theygrow/operations/theygrow-delivery-contract.md",
+      "heading": "Содержательность правки — после фильтра пробелов, не по счётчикам (добавлено 2026-08-25, разбор сессии security-каденции).",
+      "stored": "7d810c9e51ddb70738262c3c8ebd5c26e246a2b7cea1fd195d9e5f35e6aca8e6",
+      "recomputed": "7d810c9e51ddb70738262c3c8ebd5c26e246a2b7cea1fd195d9e5f35e6aca8e6",
+      "lines": "197-197",
+      "scenarios": [
+        "S-13"
+      ],
+      "scenarios_secondary": [],
+      "status": "ok"
+    },
+    {
+      "rule_id": "R-DISPOSITION-012",
+      "file": "01-theygrow/operations/theygrow-delivery-contract.md",
+      "heading": "Новый детектор принимается по наблюдённой диспозиции (добавлено 2026-08-28, разбор milestone UIP).",
+      "stored": "dec590842163e1d34fb10122db6c8de8965f9a05d5712c97d1f0f409c2b81cff",
+      "recomputed": "dec590842163e1d34fb10122db6c8de8965f9a05d5712c97d1f0f409c2b81cff",
+      "lines": "218-218",
+      "scenarios": [
+        "S-14"
+      ],
+      "scenarios_secondary": [],
+      "status": "ok"
+    },
+    {
+      "rule_id": "R-GITGREP-013",
+      "file": "01-theygrow/operations/theygrow-delivery-contract.md",
+      "heading": "Отслеживаемое проверяется `git grep`, не файловым grep (добавлено 2026-08-23, разбор milestone PPR).",
+      "stored": "190a9149c1c215223590c56f6921998d129b50725e399e5eafcead041401530d",
+      "recomputed": "190a9149c1c215223590c56f6921998d129b50725e399e5eafcead041401530d",
+      "lines": "195-195",
+      "scenarios": [
+        "S-15"
+      ],
+      "scenarios_secondary": [],
+      "status": "ok"
+    },
+    {
+      "rule_id": "R-ACCEPT-014",
+      "file": "01-theygrow/operations/theygrow-delivery-contract.md",
+      "heading": "Условие приёма нового пункта контракта (добавлено 2026-08-10, owner-акт, ретроспектива уборки; дом правила — [[00-system/CLAUDE|CLAUDE.md]] «Правила о правилах»).",
+      "stored": "299465e870289cb0d25c549159a1e41b77c176b48fc4ac73fead027f43d2311b",
+      "recomputed": "299465e870289cb0d25c549159a1e41b77c176b48fc4ac73fead027f43d2311b",
+      "lines": "212-212",
+      "scenarios": [
+        "S-16"
+      ],
+      "scenarios_secondary": [],
+      "status": "ok"
+    },
+    {
+      "rule_id": "R-BILINGUAL-015",
+      "file": "01-theygrow/operations/theygrow-delivery-contract.md",
+      "heading": "Двуязычный режим:",
+      "stored": "628949ee0c9db41e8dffa4d2e712034c3a721bdc5b7d2a5b4d10d94438d79c76",
+      "recomputed": "628949ee0c9db41e8dffa4d2e712034c3a721bdc5b7d2a5b4d10d94438d79c76",
+      "lines": "135-135",
+      "scenarios": [
+        "S-17"
+      ],
+      "scenarios_secondary": [],
+      "status": "ok"
+    },
+    {
+      "rule_id": "R-VAULTIO-016",
+      "file": "01-theygrow/operations/theygrow-delivery-contract.md",
+      "heading": "Верность носителю при vault-записи (предусловие, добавлено 2026-07-02).",
+      "stored": "7bd8f227020e34c7bb45bf3d05d11fb70bfe1c9be4df9cde5cf8d1b179300d74",
+      "recomputed": "7bd8f227020e34c7bb45bf3d05d11fb70bfe1c9be4df9cde5cf8d1b179300d74",
+      "lines": "133-133",
+      "scenarios": [
+        "S-18"
+      ],
+      "scenarios_secondary": [],
+      "status": "ok"
+    },
+    {
+      "rule_id": "R-DATEDFACT-017",
+      "file": "01-theygrow/operations/theygrow-delivery-contract.md",
+      "heading": "Датированный внешний факт в решении — только из чтения дня письма (добавлено 2026-08-21, планирующая сессия «стор + L3»; повод: три посылки опенера, сохранённые строкой лога 08-18, разошлись с первоисточниками при чтении 08-21 — продление API 36 неприменимо соответствующим приложениям; аккаунт ограниченного распространения снял посылку «верификация нужна обоим маршрутам»; Play App Signing оказался незамеченным узлом кастодии ключа).",
+      "stored": "c2c5061413347c53c223c76f87bf8851a9624363450668481a65c801041ec01d",
+      "recomputed": "c2c5061413347c53c223c76f87bf8851a9624363450668481a65c801041ec01d",
+      "lines": "208-208",
+      "scenarios": [
+        "S-19"
+      ],
+      "scenarios_secondary": [],
+      "status": "ok"
+    },
+    {
+      "rule_id": "R-PUBLICDOC-018",
+      "file": "01-theygrow/operations/theygrow-delivery-contract.md",
+      "heading": "Публичный документ проходится по классу, а не по названным местам (добавлено 2026-08-28, разбор milestone UIP).",
+      "stored": "b4c9f6628af934be5481dc971cc75b4833e609f0f4fbf7eba836101d4e5286be",
+      "recomputed": "b4c9f6628af934be5481dc971cc75b4833e609f0f4fbf7eba836101d4e5286be",
+      "lines": "216-216",
+      "scenarios": [
+        "S-20"
+      ],
+      "scenarios_secondary": [],
+      "status": "ok"
+    }
+  ],
+  "infra": [
+    {
+      "class": "infra",
+      "check": "clone_freshness",
+      "clone": "~/vaults/theygrow-vault",
+      "branch": "main",
+      "upstream": "origin/main",
+      "head": "ac605845346cfb0e4d3c76754cd93b7e70025c92",
+      "remote_head": "ac605845346cfb0e4d3c76754cd93b7e70025c92",
+      "behind": 0,
+      "ahead": 0,
+      "status": "ok",
+      "message": "main ↔ origin/main: HEAD ac605845, удалённый ac605845, отставание 0"
+    },
+    {
+      "class": "infra",
+      "check": "vault_master",
+      "master": "/mnt/d/Obsidian/TheyGrow",
+      "canon_paths": [
+        "00-system/",
+        "01-theygrow/operations/",
+        "02-synthesis/"
+      ],
+      "head": "ac605845346cfb0e4d3c76754cd93b7e70025c92",
+      "clone_head": "ac605845346cfb0e4d3c76754cd93b7e70025c92",
+      "dirty_canon": [],
+      "ahead": null,
+      "status": "ok",
+      "message": "HEAD ac605845 ↔ клон ac605845, незакоммиченных путей канона: 0"
+    }
+  ],
+  "reds": [],
+  "warnings": [],
+  "verdict": "ЗЕЛЁНЫЙ",
+  "exit_code": 0
+}
