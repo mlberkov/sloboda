@@ -1,0 +1,39 @@
+{
+  "mode": "fast",
+  "kind": "spec",
+  "timestamp": "20260831T145600Z",
+  "files_checked": 1,
+  "checkers": [
+    "shell_mech",
+    "grep_vacuum"
+  ],
+  "checkers_skipped": [
+    {
+      "name": "stop_provenance",
+      "kinds": [
+        "handoff"
+      ]
+    },
+    {
+      "name": "env_presupposition",
+      "kinds": [
+        "handoff"
+      ]
+    },
+    {
+      "name": "turn_end",
+      "kinds": [
+        "handoff"
+      ]
+    }
+  ],
+  "ignores_applied": 0,
+  "findings": [],
+  "meta": null,
+  "registry": null,
+  "infra": [],
+  "reds": [],
+  "warnings": [],
+  "verdict": "ЗЕЛЁНЫЙ",
+  "exit_code": 0
+}
