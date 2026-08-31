@@ -8,6 +8,23 @@ vault:
   # remote-ссылки клона, рабочее дерево вольта не меняется.
   clone_path: ~/vaults/theygrow-vault
 
+  # Второй канал свежести. Сравнение клона с его remote зеленеет, пока правки
+  # канона лежат в рабочей копии вольта незакоммиченными: клон свеж относительно
+  # origin, а канон, по которому считаются хэши, уже другой. Поэтому --full
+  # читает и саму рабочую копию: `git -C <master_path> status --porcelain` и
+  # `git -C <master_path> rev-parse HEAD`. Оба вызова читающие, вольт не меняется.
+  # Незакоммиченные изменения по canon_paths — красный infra (vault_uncommitted);
+  # HEAD рабочей копии впереди клона — красный infra (vault_ahead_of_clone).
+  # Путь недоступен (не WSL, диск не смонтирован, git отказал) — предупреждение
+  # infra (vault_master_unreachable): свежесть не измерена, а не подтверждена.
+  master_path: /mnt/d/Obsidian/TheyGrow
+
+  # Пути канона внутри вольта: изменения вне них на хэши реестра не влияют.
+  canon_paths:
+    - 00-system/
+    - 01-theygrow/operations/
+    - 02-synthesis/
+
 paths:
   registry: rules/registry.yaml
   scenarios: scenarios

@@ -112,20 +112,58 @@ def repo_rel(path: str) -> str:
     return os.path.abspath(path) if r.startswith("..") else r
 
 
-# ────────────────────── свежесть вольт-клона (infra) ─────────────────────
+# ───────────────────── свежесть канона под прогоном ──────────────────────
 
-def _git(clone: str, *args: str, timeout: int = 120):
-    """Читающий вызов git в вольт-клоне: (код, stdout, stderr)."""
+DEFAULT_CLONE = "~/vaults/theygrow-vault"
+
+# Пути канона внутри вольта: правка вне них хэшей реестра не касается.
+DEFAULT_CANON_PATHS = ("00-system/", "01-theygrow/operations/", "02-synthesis/")
+
+# Отказ git читать репозиторий, принадлежащий другому пользователю. Для
+# /mnt/… из WSL это штатный случай, а не поломка: он называется отдельно и
+# несёт лечение, иначе непрочитанная рабочая копия выглядит как прочитанная.
+DUBIOUS_OWNERSHIP = "dubious ownership"
+
+
+def _git(repo: str, *args: str, timeout: int = 120, strip: bool = True):
+    """Читающий вызов git в названном репозитории: (код, stdout, stderr).
+
+    strip=False обязателен для `status --porcelain`: первые два столбца строки —
+    коды состояния, и у « M путь» первый из них пробел. Общий strip() съел бы
+    его и сдвинул разбор пути на символ.
+    """
     try:
-        p = subprocess.run(["git", "-C", clone, *args],
+        p = subprocess.run(["git", "-C", repo, *args],
                            capture_output=True, text=True, timeout=timeout)
     except (OSError, subprocess.SubprocessError) as exc:
         return 127, "", f"{type(exc).__name__}: {exc}"
-    return p.returncode, p.stdout.strip(), p.stderr.strip()
+    out = p.stdout.strip() if strip else p.stdout.rstrip("\n")
+    return p.returncode, out, p.stderr.strip()
 
 
-def check_clone_freshness(config: dict) -> dict:
-    """Клон вольта свежее удалённой ветки — предпосылка пересчёта хэшей.
+def _porcelain_paths(out: str) -> list[str]:
+    """Пути из `git status --porcelain`; для переименования — обе стороны.
+
+    Путь с не-ASCII или пробелами git отдаёт в кавычках с C-эскейпами; префикс
+    каталога канона — ASCII, поэтому для отбора хватает снятия кавычек.
+    """
+    paths: list[str] = []
+    for line in out.splitlines():
+        if len(line) < 4:
+            continue
+        code, rest = line[:2], line[3:]
+        parts = rest.split(" -> ") if "R" in code else [rest]
+        for raw in parts:
+            path = raw.strip()
+            if len(path) >= 2 and path.startswith('"') and path.endswith('"'):
+                path = path[1:-1]
+            if path:
+                paths.append(path)
+    return paths
+
+
+def check_clone_remote(config: dict) -> dict:
+    """Канал 1: клон вольта против своей удалённой ветки.
 
     Хэш, посчитанный по отставшему клону, ничего не говорит о каноне: прогон
     получил бы зелёный на устаревшем предмете. Поэтому отставание — красный,
@@ -134,7 +172,7 @@ def check_clone_freshness(config: dict) -> dict:
     clone_missing. Сам вызов читающий: fetch трогает только remote-ссылки клона,
     рабочее дерево вольта не меняется.
     """
-    raw = (config.get("vault") or {}).get("clone_path", "~/vaults/theygrow-vault")
+    raw = (config.get("vault") or {}).get("clone_path", DEFAULT_CLONE)
     clone = os.path.expanduser(raw)
     row = {"class": INFRA, "check": "clone_freshness", "clone": raw,
            "branch": None, "upstream": None, "head": None, "remote_head": None,
@@ -198,6 +236,132 @@ def check_clone_freshness(config: dict) -> dict:
     return {"row": row, "reds": reds, "warnings": warns}
 
 
+def check_vault_master(config: dict, clone_raw: str, clone_head: str | None) -> dict:
+    """Канал 2: рабочая копия вольта против клона.
+
+    Канала 1 мало: он сравнивает клон с его remote и зеленеет ровно тогда,
+    когда правка канона лежит в рабочей копии вольта незакоммиченной — клон
+    свеж относительно origin, а предмет, по которому считаются хэши, уже
+    другой. Здесь читается сама рабочая копия: `git status --porcelain` и
+    `git rev-parse HEAD`. Оба вызова читающие, в вольт ничего не пишется.
+
+    Типизированные итоги: ok | vault_uncommitted | vault_ahead_of_clone |
+    vault_master_unreachable. Недоступность пути (не WSL, диск не смонтирован,
+    git отказал читать чужой по владельцу репозиторий) — предупреждение, а не
+    зелёный: свежесть не измерена, а не подтверждена.
+    """
+    vault = config.get("vault") or {}
+    raw = vault.get("master_path")
+    canon_paths = tuple(vault.get("canon_paths") or DEFAULT_CANON_PATHS)
+    master = os.path.expanduser(raw) if raw else None
+    row = {"class": INFRA, "check": "vault_master", "master": raw,
+           "canon_paths": list(canon_paths), "head": None, "clone_head": clone_head,
+           "dirty_canon": None, "ahead": None, "status": "ok", "message": None}
+    reds: list[str] = []
+    warns: list[str] = []
+
+    def unmeasured(message: str) -> dict:
+        row["status"], row["message"] = "vault_master_unreachable", message
+        warns.append(f"[{INFRA}] vault_master_unreachable: {message}")
+        return {"row": row, "reds": reds, "warnings": warns}
+
+    def dubious(action: str) -> dict:
+        return unmeasured(
+            f"git отказался читать {raw} на `{action}`: dubious ownership — "
+            f"репозиторий принадлежит другому пользователю (штатный случай для "
+            f"/mnt/… из WSL, не поломка вольта). Лечение владельцу: "
+            f"`git config --global --add safe.directory {master}`; до него "
+            f"незакоммиченная правка канона прогоном не измерена")
+
+    if not raw:
+        return unmeasured("в config.yaml нет vault.master_path — рабочая копия "
+                          "вольта не читалась: незакоммиченная правка канона "
+                          "прогоном не измерена")
+    if not os.path.isdir(os.path.join(master, ".git")):
+        return unmeasured(f"рабочая копия вольта {raw} недоступна (нет {master}/.git) — "
+                          f"не WSL либо диск не смонтирован: незакоммиченная правка "
+                          f"канона прогоном не измерена")
+
+    rc, porcelain, err = _git(master, "status", "--porcelain", strip=False)
+    if rc != 0:
+        if DUBIOUS_OWNERSHIP in err:
+            return dubious("git status --porcelain")
+        return unmeasured(f"git -C {raw} status --porcelain вернул код {rc} "
+                          f"({err.splitlines()[-1] if err else 'без stderr'}) — "
+                          f"состояние рабочей копии вольта не измерено")
+
+    rc, head, err = _git(master, "rev-parse", "HEAD")
+    if rc != 0 or not head:
+        if DUBIOUS_OWNERSHIP in err:
+            return dubious("git rev-parse HEAD")
+        return unmeasured(f"git -C {raw} rev-parse HEAD вернул код {rc} "
+                          f"({err.splitlines()[-1] if err else 'без stderr'}) — "
+                          f"HEAD рабочей копии вольта не измерен")
+    row["head"] = head
+
+    statuses: list[str] = []
+
+    dirty = sorted({p for p in _porcelain_paths(porcelain)
+                    if any(p.startswith(c) for c in canon_paths)})
+    row["dirty_canon"] = dirty
+    if dirty:
+        shown = ", ".join(dirty[:4])
+        tail = f" и ещё {len(dirty) - 4}" if len(dirty) > 4 else ""
+        statuses.append("vault_uncommitted")
+        reds.append(f"[{INFRA}] vault_uncommitted: в рабочей копии вольта {raw} "
+                    f"незакоммичены изменения по путям канона ({shown}{tail}) — "
+                    f"клон их не видит, хэши считались бы по канону без этих правок; "
+                    f"владельцу закоммитить и запушить их, затем "
+                    f"`git -C {clone_raw} pull --ff-only` и повторить прогон")
+
+    if not clone_head:
+        warns.append(f"[{INFRA}] vault_ahead_unknown: HEAD клона {clone_raw} не измерен "
+                     f"(см. clone_freshness выше) — сравнивать HEAD рабочей копии "
+                     f"вольта не с чем")
+    elif head != clone_head:
+        # Сравнение делается в клоне: рабочая копия вольта только опрашивается.
+        known = _git(os.path.expanduser(clone_raw), "cat-file", "-e",
+                     f"{head}^{{commit}}")[0] == 0
+        ahead = None
+        if known:
+            rc, cnt, _ = _git(os.path.expanduser(clone_raw), "rev-list", "--count",
+                              f"{clone_head}..{head}")
+            ahead = int(cnt) if rc == 0 and cnt.isdigit() else None
+        row["ahead"] = ahead
+        if ahead == 0:
+            warns.append(f"[{INFRA}] vault_behind_clone: HEAD рабочей копии вольта "
+                         f"{raw} ({head[:8]}) — предок HEAD клона ({clone_head[:8]}): "
+                         f"клон читает канон новее, чем лежит в вольте")
+        else:
+            statuses.append("vault_ahead_of_clone")
+            detail = (f"на {ahead} коммит(ов)" if ahead
+                      else f"коммит {head[:8]} клону неизвестен (не запушен)")
+            reds.append(f"[{INFRA}] vault_ahead_of_clone: HEAD рабочей копии вольта "
+                        f"{raw} ({head[:8]}) впереди клона ({clone_head[:8]}) {detail} — "
+                        f"клон читает устаревший канон; владельцу запушить вольт, затем "
+                        f"`git -C {clone_raw} pull --ff-only` и повторить прогон")
+
+    row["status"] = "+".join(statuses) if statuses else "ok"
+    row["message"] = (f"HEAD {head[:8]}"
+                      + (f" ↔ клон {clone_head[:8]}" if clone_head else "")
+                      + f", незакоммиченных путей канона: {len(dirty)}")
+    return {"row": row, "reds": reds, "warnings": warns}
+
+
+def check_clone_freshness(config: dict) -> dict:
+    """Свежесть канона под прогоном — двумя независимыми каналами.
+
+    Канал 1 (клон ↔ его remote) и канал 2 (рабочая копия вольта ↔ клон).
+    Одного первого мало: он зеленеет, пока правка канона не закоммичена.
+    """
+    first = check_clone_remote(config)
+    clone_raw = (config.get("vault") or {}).get("clone_path", DEFAULT_CLONE)
+    second = check_vault_master(config, clone_raw, first["row"].get("head"))
+    return {"rows": [first["row"], second["row"]],
+            "reds": first["reds"] + second["reds"],
+            "warnings": first["warnings"] + second["warnings"]}
+
+
 # ─────────────────────────── реестр и сценарии ───────────────────────────
 
 ROLES = ("primary", "secondary")
@@ -213,7 +377,7 @@ def scenario_refs(s: dict) -> list[dict]:
 
 
 def check_registry(config: dict, registry: dict, scenarios: list[dict]) -> dict:
-    clone = (config.get("vault") or {}).get("clone_path", "~/vaults/theygrow-vault")
+    clone = (config.get("vault") or {}).get("clone_path", DEFAULT_CLONE)
     reds: list[str] = []
     warns: list[str] = []
     rows: list[dict] = []
@@ -535,7 +699,7 @@ def main(argv=None) -> int:
 
         # Свежесть клона — предпосылка пересчёта хэшей: меряется до него.
         fresh = check_clone_freshness(config)
-        infra_rows.append(fresh["row"])
+        infra_rows.extend(fresh["rows"])
         reds.extend(fresh["reds"])
         warnings.extend(fresh["warnings"])
 
