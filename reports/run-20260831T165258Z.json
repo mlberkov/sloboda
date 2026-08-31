@@ -1,0 +1,588 @@
+{
+  "mode": "fast",
+  "kind": "handoff",
+  "timestamp": "20260831T165258Z",
+  "files_checked": 1,
+  "checkers": [
+    "artifact_integrity",
+    "shell_mech",
+    "stop_provenance",
+    "env_presupposition",
+    "grep_vacuum",
+    "turn_end",
+    "smoke_line",
+    "live_channel_slot",
+    "owner_action_block"
+  ],
+  "checkers_skipped": [],
+  "ignores_applied": 0,
+  "findings": [
+    {
+      "file": "calibration/session-2.md",
+      "line": 138,
+      "checker": "owner_action_block",
+      "severity": "red",
+      "message": "пункт «Ваших действий» поручает исполнить команду («Запустить»), но огороженного блока нет ни в нём, ни в следующем пункте: поручение прозой владелец собирает по памяти либо пропускает, исполнив копируемый блок выше и сочтя ход закрытым — §7 требует блок, а не прозу",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 198,
+      "checker": "live_channel_slot",
+      "severity": "red",
+      "message": "утверждение о состоянии живого канала («отчёта … видны») без слота «Каналы: X, Y»: независимость второго канала из текста хода не выводится — повторное обращение к тому же адресу читается как второй канал",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 206,
+      "checker": "live_channel_slot",
+      "severity": "red",
+      "message": "утверждение о состоянии живого канала («видны … отчёты») без слота «Каналы: X, Y»: независимость второго канала из текста хода не выводится — повторное обращение к тому же адресу читается как второй канал",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 207,
+      "checker": "owner_action_block",
+      "severity": "red",
+      "message": "пункт «Ваших действий» поручает исполнить команду («Запустить»), но огороженного блока нет ни в нём, ни в следующем пункте: поручение прозой владелец собирает по памяти либо пропускает, исполнив копируемый блок выше и сочтя ход закрытым — §7 требует блок, а не прозу",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 289,
+      "checker": "live_channel_slot",
+      "severity": "red",
+      "message": "утверждение о состоянии живого канала («канона … стоит») без слота «Каналы: X, Y»: независимость второго канала из текста хода не выводится — повторное обращение к тому же адресу читается как второй канал",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 295,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "ожидание вывода блока («Ожидаемо:») не цитирует фактический вывод на предмете и не помечено «не исполнялась — первый прогон у владельца»: ожидание из головы неотличимо от измеренного — перед выдачей блок исполняется на предмете, и ожидаемый вывод берётся из этого исполнения",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 325,
+      "checker": "live_channel_slot",
+      "severity": "red",
+      "message": "утверждение о состоянии живого канала («занято … репозиторий») без слота «Каналы: X, Y»: независимость второго канала из текста хода не выводится — повторное обращение к тому же адресу читается как второй канал",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 346,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "ожидание вывода блока («Ожидаемо:») не цитирует фактический вывод на предмете и не помечено «не исполнялась — первый прогон у владельца»: ожидание из головы неотличимо от измеренного — перед выдачей блок исполняется на предмете, и ожидаемый вывод берётся из этого исполнения",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 431,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "ожидание вывода блока («Ожидаемо:») не цитирует фактический вывод на предмете и не помечено «не исполнялась — первый прогон у владельца»: ожидание из головы неотличимо от измеренного — перед выдачей блок исполняется на предмете, и ожидаемый вывод берётся из этого исполнения",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 435,
+      "checker": "env_presupposition",
+      "severity": "red",
+      "message": "[pip_install_outside_venv] `pip install` без venv-пути и без предшествующей строки, создающей или активирующей venv: в среде PEP 668 системный pip отказывает (externally-managed-environment) — блок падает на предпосылке, а не на предмете",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 468,
+      "checker": "live_channel_slot",
+      "severity": "red",
+      "message": "утверждение о состоянии живого канала («виден … странице») без слота «Каналы: X, Y»: независимость второго канала из текста хода не выводится — повторное обращение к тому же адресу читается как второй канал",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 475,
+      "checker": "owner_action_block",
+      "severity": "red",
+      "message": "пункт «Ваших действий» поручает исполнить команду («прогнать»), но огороженного блока нет ни в нём, ни в следующем пункте: поручение прозой владелец собирает по памяти либо пропускает, исполнив копируемый блок выше и сочтя ход закрытым — §7 требует блок, а не прозу",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 495,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "ожидание вывода блока («Ожидаемо:») не цитирует фактический вывод на предмете и не помечено «не исполнялась — первый прогон у владельца»: ожидание из головы неотличимо от измеренного — перед выдачей блок исполняется на предмете, и ожидаемый вывод берётся из этого исполнения",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 509,
+      "checker": "live_channel_slot",
+      "severity": "red",
+      "message": "утверждение о состоянии живого канала («репозиторий … создан») без слота «Каналы: X, Y»: независимость второго канала из текста хода не выводится — повторное обращение к тому же адресу читается как второй канал",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 511,
+      "checker": "owner_action_block",
+      "severity": "red",
+      "message": "пункт «Ваших действий» поручает исполнить команду («прогнать»), но огороженного блока нет ни в нём, ни в следующем пункте: поручение прозой владелец собирает по памяти либо пропускает, исполнив копируемый блок выше и сочтя ход закрытым — §7 требует блок, а не прозу",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 519,
+      "checker": "env_presupposition",
+      "severity": "red",
+      "message": "[pip_install_outside_venv] `pip install` без venv-пути и без предшествующей строки, создающей или активирующей venv: в среде PEP 668 системный pip отказывает (externally-managed-environment) — блок падает на предпосылке, а не на предмете",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 539,
+      "checker": "env_presupposition",
+      "severity": "red",
+      "message": "[pip_install_outside_venv] `pip install` без venv-пути и без предшествующей строки, создающей или активирующей venv: в среде PEP 668 системный pip отказывает (externally-managed-environment) — блок падает на предпосылке, а не на предмете",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 539,
+      "checker": "live_channel_slot",
+      "severity": "red",
+      "message": "утверждение о состоянии живого канала («реестра … стоит») без слота «Каналы: X, Y»: независимость второго канала из текста хода не выводится — повторное обращение к тому же адресу читается как второй канал",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 553,
+      "checker": "env_presupposition",
+      "severity": "red",
+      "message": "[pip_install_outside_venv] `pip install` без venv-пути и без предшествующей строки, создающей или активирующей venv: в среде PEP 668 системный pip отказывает (externally-managed-environment) — блок падает на предпосылке, а не на предмете",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 563,
+      "checker": "owner_action_block",
+      "severity": "red",
+      "message": "пункт «Ваших действий» поручает исполнить команду («Прогнать»), но огороженного блока нет ни в нём, ни в следующем пункте: поручение прозой владелец собирает по памяти либо пропускает, исполнив копируемый блок выше и сочтя ход закрытым — §7 требует блок, а не прозу",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 587,
+      "checker": "env_presupposition",
+      "severity": "red",
+      "message": "[pip_install_outside_venv] `pip install` без venv-пути и без предшествующей строки, создающей или активирующей venv: в среде PEP 668 системный pip отказывает (externally-managed-environment) — блок падает на предпосылке, а не на предмете",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 591,
+      "checker": "stop_provenance",
+      "severity": "red",
+      "message": "число 25 в блоке стоп-условия без соседнего провенанса: рядом нет ни команды, его вернувшей, ни цитаты выдачи, ни пометки «ожидание»/«не проверено»",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 593,
+      "checker": "stop_provenance",
+      "severity": "red",
+      "message": "число 0 в блоке стоп-условия без соседнего провенанса: рядом нет ни команды, его вернувшей, ни цитаты выдачи, ни пометки «ожидание»/«не проверено»",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 595,
+      "checker": "env_presupposition",
+      "severity": "red",
+      "message": "[pip_install_outside_venv] `pip install` без venv-пути и без предшествующей строки, создающей или активирующей venv: в среде PEP 668 системный pip отказывает (externally-managed-environment) — блок падает на предпосылке, а не на предмете",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 597,
+      "checker": "stop_provenance",
+      "severity": "red",
+      "message": "число 8 в блоке стоп-условия без соседнего провенанса: рядом нет ни команды, его вернувшей, ни цитаты выдачи, ни пометки «ожидание»/«не проверено»",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 602,
+      "checker": "owner_action_block",
+      "severity": "red",
+      "message": "пункт «Ваших действий» поручает исполнить команду («прогнать»), но огороженного блока нет ни в нём, ни в следующем пункте: поручение прозой владелец собирает по памяти либо пропускает, исполнив копируемый блок выше и сочтя ход закрытым — §7 требует блок, а не прозу",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 603,
+      "checker": "owner_action_block",
+      "severity": "red",
+      "message": "пункт «Ваших действий» поручает исполнить команду («Закоммитить»), но огороженного блока нет ни в нём, ни в следующем пункте: поручение прозой владелец собирает по памяти либо пропускает, исполнив копируемый блок выше и сочтя ход закрытым — §7 требует блок, а не прозу",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 624,
+      "checker": "env_presupposition",
+      "severity": "red",
+      "message": "[pip_install_outside_venv] `pip install` без venv-пути и без предшествующей строки, создающей или активирующей venv: в среде PEP 668 системный pip отказывает (externally-managed-environment) — блок падает на предпосылке, а не на предмете",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 626,
+      "checker": "live_channel_slot",
+      "severity": "red",
+      "message": "утверждение о состоянии живого канала («клон … зелёный») без слота «Каналы: X, Y»: независимость второго канала из текста хода не выводится — повторное обращение к тому же адресу читается как второй канал",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 640,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "исполняемый блок выдан владельцу без строки ожидания его вывода: ни в том же абзаце, ни в следующем нет «Ожидаемо: …» с ожиданием не короче 10 значащих символов — владелец получает команду и не получает, с чем сравнить её вывод (§7: пункт называет, какой результат считается ожидаемым)",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 651,
+      "checker": "owner_action_block",
+      "severity": "red",
+      "message": "пункт «Ваших действий» поручает исполнить команду («Закоммитить»), но огороженного блока нет ни в нём, ни в следующем пункте: поручение прозой владелец собирает по памяти либо пропускает, исполнив копируемый блок выше и сочтя ход закрытым — §7 требует блок, а не прозу",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 690,
+      "checker": "live_channel_slot",
+      "severity": "red",
+      "message": "утверждение о состоянии живого канала («Реестр … обновлён») без слота «Каналы: X, Y»: независимость второго канала из текста хода не выводится — повторное обращение к тому же адресу читается как второй канал",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 704,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "исполняемый блок выдан владельцу без строки ожидания его вывода: ни в том же абзаце, ни в следующем нет «Ожидаемо: …» с ожиданием не короче 10 значащих символов — владелец получает команду и не получает, с чем сравнить её вывод (§7: пункт называет, какой результат считается ожидаемым)",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 713,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "ожидание вывода блока («Ожидаемо:») не цитирует фактический вывод на предмете и не помечено «не исполнялась — первый прогон у владельца»: ожидание из головы неотличимо от измеренного — перед выдачей блок исполняется на предмете, и ожидаемый вывод берётся из этого исполнения",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 720,
+      "checker": "live_channel_slot",
+      "severity": "red",
+      "message": "утверждение о состоянии живого канала («ЗЕЛЁНЫЙ … реестр») без слота «Каналы: X, Y»: независимость второго канала из текста хода не выводится — повторное обращение к тому же адресу читается как второй канал",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 724,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "исполняемый блок выдан владельцу без строки ожидания его вывода: ни в том же абзаце, ни в следующем нет «Ожидаемо: …» с ожиданием не короче 10 значащих символов — владелец получает команду и не получает, с чем сравнить её вывод (§7: пункт называет, какой результат считается ожидаемым)",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 728,
+      "checker": "owner_action_block",
+      "severity": "red",
+      "message": "пункт «Ваших действий» поручает исполнить команду («Закоммитить»), но огороженного блока нет ни в нём, ни в следующем пункте: поручение прозой владелец собирает по памяти либо пропускает, исполнив копируемый блок выше и сочтя ход закрытым — §7 требует блок, а не прозу",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 748,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "ожидание вывода блока («Ожидаемо:») не цитирует фактический вывод на предмете и не помечено «не исполнялась — первый прогон у владельца»: ожидание из головы неотличимо от измеренного — перед выдачей блок исполняется на предмете, и ожидаемый вывод берётся из этого исполнения",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 757,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "исполняемый блок выдан владельцу без строки ожидания его вывода: ни в том же абзаце, ни в следующем нет «Ожидаемо: …» с ожиданием не короче 10 значащих символов — владелец получает команду и не получает, с чем сравнить её вывод (§7: пункт называет, какой результат считается ожидаемым)",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 767,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "исполняемый блок выдан владельцу без строки ожидания его вывода: ни в том же абзаце, ни в следующем нет «Ожидаемо: …» с ожиданием не короче 10 значащих символов — владелец получает команду и не получает, с чем сравнить её вывод (§7: пункт называет, какой результат считается ожидаемым)",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 775,
+      "checker": "owner_action_block",
+      "severity": "red",
+      "message": "пункт «Ваших действий» поручает исполнить команду («Закоммитить»), но огороженного блока нет ни в нём, ни в следующем пункте: поручение прозой владелец собирает по памяти либо пропускает, исполнив копируемый блок выше и сочтя ход закрытым — §7 требует блок, а не прозу",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 785,
+      "checker": "live_channel_slot",
+      "severity": "red",
+      "message": "утверждение о состоянии живого канала («зелёный … репозитория») без слота «Каналы: X, Y»: независимость второго канала из текста хода не выводится — повторное обращение к тому же адресу читается как второй канал",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 801,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "ожидание вывода блока («Ожидаемо:») не цитирует фактический вывод на предмете и не помечено «не исполнялась — первый прогон у владельца»: ожидание из головы неотличимо от измеренного — перед выдачей блок исполняется на предмете, и ожидаемый вывод берётся из этого исполнения",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 822,
+      "checker": "env_presupposition",
+      "severity": "red",
+      "message": "[pip_install_outside_venv] `pip install` без venv-пути и без предшествующей строки, создающей или активирующей venv: в среде PEP 668 системный pip отказывает (externally-managed-environment) — блок падает на предпосылке, а не на предмете",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 827,
+      "checker": "live_channel_slot",
+      "severity": "red",
+      "message": "утверждение о состоянии живого канала («прошла … репозиторий») без слота «Каналы: X, Y»: независимость второго канала из текста хода не выводится — повторное обращение к тому же адресу читается как второй канал",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 835,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "исполняемый блок выдан владельцу без строки ожидания его вывода: ни в том же абзаце, ни в следующем нет «Ожидаемо: …» с ожиданием не короче 10 значащих символов — владелец получает команду и не получает, с чем сравнить её вывод (§7: пункт называет, какой результат считается ожидаемым)",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 843,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "ожидание вывода блока («Ожидаемо:») не цитирует фактический вывод на предмете и не помечено «не исполнялась — первый прогон у владельца»: ожидание из головы неотличимо от измеренного — перед выдачей блок исполняется на предмете, и ожидаемый вывод берётся из этого исполнения",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 851,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "исполняемый блок выдан владельцу без строки ожидания его вывода: ни в том же абзаце, ни в следующем нет «Ожидаемо: …» с ожиданием не короче 10 значащих символов — владелец получает команду и не получает, с чем сравнить её вывод (§7: пункт называет, какой результат считается ожидаемым)",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 859,
+      "checker": "owner_action_block",
+      "severity": "red",
+      "message": "пункт «Ваших действий» поручает исполнить команду («Закоммитить»), но огороженного блока нет ни в нём, ни в следующем пункте: поручение прозой владелец собирает по памяти либо пропускает, исполнив копируемый блок выше и сочтя ход закрытым — §7 требует блок, а не прозу",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 879,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "исполняемый блок выдан владельцу без строки ожидания его вывода: ни в том же абзаце, ни в следующем нет «Ожидаемо: …» с ожиданием не короче 10 значащих символов — владелец получает команду и не получает, с чем сравнить её вывод (§7: пункт называет, какой результат считается ожидаемым)",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 887,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "ожидание вывода блока («Ожидаемо:») не цитирует фактический вывод на предмете и не помечено «не исполнялась — первый прогон у владельца»: ожидание из головы неотличимо от измеренного — перед выдачей блок исполняется на предмете, и ожидаемый вывод берётся из этого исполнения",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 895,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "исполняемый блок выдан владельцу без строки ожидания его вывода: ни в том же абзаце, ни в следующем нет «Ожидаемо: …» с ожиданием не короче 10 значащих символов — владелец получает команду и не получает, с чем сравнить её вывод (§7: пункт называет, какой результат считается ожидаемым)",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 917,
+      "checker": "live_channel_slot",
+      "severity": "red",
+      "message": "утверждение о состоянии живого канала («доставлено») без слота «Каналы: X, Y»: независимость второго канала из текста хода не выводится — повторное обращение к тому же адресу читается как второй канал",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 931,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "исполняемый блок выдан владельцу без строки ожидания его вывода: ни в том же абзаце, ни в следующем нет «Ожидаемо: …» с ожиданием не короче 10 значащих символов — владелец получает команду и не получает, с чем сравнить её вывод (§7: пункт называет, какой результат считается ожидаемым)",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 937,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "исполняемый блок выдан владельцу без строки ожидания его вывода: ни в том же абзаце, ни в следующем нет «Ожидаемо: …» с ожиданием не короче 10 значащих символов — владелец получает команду и не получает, с чем сравнить её вывод (§7: пункт называет, какой результат считается ожидаемым)",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 948,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "исполняемый блок выдан владельцу без строки ожидания его вывода: ни в том же абзаце, ни в следующем нет «Ожидаемо: …» с ожиданием не короче 10 значащих символов — владелец получает команду и не получает, с чем сравнить её вывод (§7: пункт называет, какой результат считается ожидаемым)",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 960,
+      "checker": "stop_provenance",
+      "severity": "red",
+      "message": "число 27 в блоке стоп-условия без соседнего провенанса: рядом нет ни команды, его вернувшей, ни цитаты выдачи, ни пометки «ожидание»/«не проверено»",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 978,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "ожидание вывода блока («Ожидаемо:») не цитирует фактический вывод на предмете и не помечено «не исполнялась — первый прогон у владельца»: ожидание из головы неотличимо от измеренного — перед выдачей блок исполняется на предмете, и ожидаемый вывод берётся из этого исполнения",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 986,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "исполняемый блок выдан владельцу без строки ожидания его вывода: ни в том же абзаце, ни в следующем нет «Ожидаемо: …» с ожиданием не короче 10 значащих символов — владелец получает команду и не получает, с чем сравнить её вывод (§7: пункт называет, какой результат считается ожидаемым)",
+      "observation": null
+    },
+    {
+      "file": "calibration/session-2.md",
+      "line": 997,
+      "checker": "smoke_line",
+      "severity": "red",
+      "message": "исполняемый блок выдан владельцу без строки ожидания его вывода: ни в том же абзаце, ни в следующем нет «Ожидаемо: …» с ожиданием не короче 10 значащих символов — владелец получает команду и не получает, с чем сравнить её вывод (§7: пункт называет, какой результат считается ожидаемым)",
+      "observation": null
+    }
+  ],
+  "observations": [
+    {
+      "file": "calibration/session.md",
+      "line": 131,
+      "checker": "owner_action_block",
+      "class": "self_reference",
+      "note": "Пункт пакета на заведение самого owner_action_block: глаголы «прогнать», «закоммитить» стоят в нём как цитата словаря чекера, а не как поручение владельцу. Ложное срабатывание; порогом не чинится.",
+      "matched": 0
+    },
+    {
+      "file": "calibration/session.md",
+      "line": 113,
+      "checker": "live_channel_slot",
+      "class": "self_reference",
+      "note": "Тот же класс, найден переписанным live_channel_slot 2026-08-31: строка предсказания диспозиции цитирует формы «Публикация прошла», «репозиторий создан» как примеры, а не утверждает о носителе. Ложное срабатывание; порогом не чинится.",
+      "matched": 0
+    }
+  ],
+  "not_measured": [],
+  "meta": null,
+  "registry": null,
+  "infra": [],
+  "reds": [
+    "calibration/session-2.md:591 stop_provenance",
+    "calibration/session-2.md:593 stop_provenance",
+    "calibration/session-2.md:597 stop_provenance",
+    "calibration/session-2.md:960 stop_provenance",
+    "calibration/session-2.md:435 env_presupposition",
+    "calibration/session-2.md:519 env_presupposition",
+    "calibration/session-2.md:539 env_presupposition",
+    "calibration/session-2.md:553 env_presupposition",
+    "calibration/session-2.md:587 env_presupposition",
+    "calibration/session-2.md:595 env_presupposition",
+    "calibration/session-2.md:624 env_presupposition",
+    "calibration/session-2.md:822 env_presupposition",
+    "calibration/session-2.md:295 smoke_line",
+    "calibration/session-2.md:346 smoke_line",
+    "calibration/session-2.md:431 smoke_line",
+    "calibration/session-2.md:495 smoke_line",
+    "calibration/session-2.md:640 smoke_line",
+    "calibration/session-2.md:704 smoke_line",
+    "calibration/session-2.md:713 smoke_line",
+    "calibration/session-2.md:724 smoke_line",
+    "calibration/session-2.md:748 smoke_line",
+    "calibration/session-2.md:757 smoke_line",
+    "calibration/session-2.md:767 smoke_line",
+    "calibration/session-2.md:801 smoke_line",
+    "calibration/session-2.md:835 smoke_line",
+    "calibration/session-2.md:843 smoke_line",
+    "calibration/session-2.md:851 smoke_line",
+    "calibration/session-2.md:879 smoke_line",
+    "calibration/session-2.md:887 smoke_line",
+    "calibration/session-2.md:895 smoke_line",
+    "calibration/session-2.md:931 smoke_line",
+    "calibration/session-2.md:937 smoke_line",
+    "calibration/session-2.md:948 smoke_line",
+    "calibration/session-2.md:978 smoke_line",
+    "calibration/session-2.md:986 smoke_line",
+    "calibration/session-2.md:997 smoke_line",
+    "calibration/session-2.md:198 live_channel_slot",
+    "calibration/session-2.md:206 live_channel_slot",
+    "calibration/session-2.md:289 live_channel_slot",
+    "calibration/session-2.md:325 live_channel_slot",
+    "calibration/session-2.md:468 live_channel_slot",
+    "calibration/session-2.md:509 live_channel_slot",
+    "calibration/session-2.md:539 live_channel_slot",
+    "calibration/session-2.md:626 live_channel_slot",
+    "calibration/session-2.md:690 live_channel_slot",
+    "calibration/session-2.md:720 live_channel_slot",
+    "calibration/session-2.md:785 live_channel_slot",
+    "calibration/session-2.md:827 live_channel_slot",
+    "calibration/session-2.md:917 live_channel_slot",
+    "calibration/session-2.md:138 owner_action_block",
+    "calibration/session-2.md:207 owner_action_block",
+    "calibration/session-2.md:475 owner_action_block",
+    "calibration/session-2.md:511 owner_action_block",
+    "calibration/session-2.md:563 owner_action_block",
+    "calibration/session-2.md:602 owner_action_block",
+    "calibration/session-2.md:603 owner_action_block",
+    "calibration/session-2.md:651 owner_action_block",
+    "calibration/session-2.md:728 owner_action_block",
+    "calibration/session-2.md:775 owner_action_block",
+    "calibration/session-2.md:859 owner_action_block"
+  ],
+  "warnings": [],
+  "verdict": "КРАСНЫЙ",
+  "exit_code": 1
+}

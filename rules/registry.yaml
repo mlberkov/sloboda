@@ -68,6 +68,20 @@ rules:
     content_hash: "445ed61c9b73d5da3360401948caa248675c29c4f73b5c83db095db0e3170397"
     classes: [К4]
 
+  - rule_id: R-VACUUM-007
+    source:
+      file: 01-theygrow/operations/theygrow-delivery-contract.md
+      section: "§11"
+      heading: "Пустая выдача при нулевом коде выхода — отказ канала (добавлено 2026-08-22, разбор закрытия L3)."
+      lines_at_binding: "202-202"
+    content_hash: "99ac8b1bfe56d068373dc3306ca3259738e310459eb3de7dd66792bdeb4bcc1d"
+    classes: [К2]
+    note: >-
+      Пункт говорит об инструменте чтения (лог, API, файл). S-09 применяет его к
+      самому линтеру: «ноль находок» пяти блочных чекеров на артефакте без оград —
+      та же пустая выдача при нулевом коде выхода. Секция — один абзац-блок:
+      следующий пункт «Выгрузка артефактов — вне рабочего дерева» стоит на 204.
+
   - rule_id: R-OWNERBLOCK-006
     source:
       file: 01-theygrow/operations/theygrow-delivery-contract.md
