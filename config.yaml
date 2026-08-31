@@ -2,6 +2,10 @@
 vault:
   # Клон вольта только читается. Перед прогоном --full владелец делает:
   #   git -C <clone_path> pull --ff-only
+  # --full сам меряет свежесть: git -C <clone_path> fetch и сравнение HEAD с
+  # удалённой веткой. Отставание = красный класса infra (clone_behind_vault):
+  # хэши по отставшему клону ничего не говорят о каноне. Fetch трогает только
+  # remote-ссылки клона, рабочее дерево вольта не меняется.
   clone_path: ~/vaults/theygrow-vault
 
 paths:

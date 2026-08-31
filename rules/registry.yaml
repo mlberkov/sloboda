@@ -7,7 +7,8 @@
 #                 Нормализация: rstrip каждой строки, отброс хвостовых пустых
 #                 строк, склейка через LF, utf-8.
 #                 Разбор уровней и хэш — linter/canon.py (bold_lead_v0).
-# Пересчёт: python run.py --full (расхождение с rule_hash_at_binding сценария = красный).
+# Пересчёт: python run.py --full (расхождение с hash_at_binding primary-ссылки
+# сценария = красный; secondary-ссылки на свежесть пункта не влияют).
 
 version: 0
 computed_at: "2026-08-31T00:00:00Z"

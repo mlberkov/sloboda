@@ -7,6 +7,10 @@ from dataclasses import dataclass, asdict
 
 RED = "red"
 WARNING = "warning"
+# Изъятие без причины — не вердикт чекера о предмете, а дефект самой разметки
+# артефакта; severity отдельная, но валит прогон наравне с красным.
+ERROR = "error"
+FAILING = frozenset({RED, ERROR})
 
 FENCE = re.compile(r"^(\s*)(`{3,}|~{3,})\s*([^\s`]*)")
 

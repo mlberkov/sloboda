@@ -6,6 +6,13 @@
 #
 # config чекера = shared + собственный config (собственный побеждает).
 # Списки форм S-03 живут здесь: расширение формы — правка данных, не кода.
+#
+# kinds — виды артефактов, на которых чекер имеет право говорить (run.py --kind):
+#   handoff — артефакт хода, выдаваемый владельцу (по умолчанию);
+#   spec    — входное задание оркестратору.
+# Чекер без поля kinds работает на всех видах. Предпосылки среды и провенанс
+# стоп-условий меряются в артефакте хода: в задании оба говорят о предмете,
+# которого в задании ещё нет, — отсюда kinds: [handoff] у них двоих.
 
 version: 0
 
@@ -17,6 +24,7 @@ shared:
 checkers:
   - name: shell_mech
     module: linter.checkers.shell_mech
+    kinds: [handoff, spec]
     rule_id: R-SHELL-003
     scenario: null            # базовый чекер, отдельного сценария v0 не имеет
     description: >-
@@ -28,6 +36,7 @@ checkers:
 
   - name: stop_provenance
     module: linter.checkers.stop_provenance
+    kinds: [handoff]
     rule_id: R-PROV-001
     scenario: S-02
     description: >-
@@ -52,6 +61,7 @@ checkers:
 
   - name: env_presupposition
     module: linter.checkers.env_presupposition
+    kinds: [handoff]
     rule_id: R-SHELL-003
     scenario: S-03
     description: >-
@@ -99,6 +109,7 @@ checkers:
 
   - name: grep_vacuum
     module: linter.checkers.grep_vacuum
+    kinds: [handoff, spec]
     rule_id: R-SMOKE-004
     scenario: S-04
     description: >-
@@ -111,6 +122,7 @@ checkers:
 
   - name: turn_end
     module: linter.checkers.turn_end
+    kinds: [handoff, spec]
     rule_id: R-TURN-005
     scenario: S-05
     description: >-
