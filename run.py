@@ -76,6 +76,31 @@ def load_checkers(manifest: dict, kind: str):
     return active, skipped
 
 
+def load_observations(config: dict) -> list[dict]:
+    """Наблюдения прогона: пометка класса к находке, которая остаётся на месте.
+
+    Наблюдение ничего не изымает и на вердикт не влияет — этим оно и отличается
+    от `<!-- lint:ignore … -->` (linter/ignores.py), снимающего находку. Форма
+    нужна там, где находка разобрана и признана не подгоняемой порогом: она
+    остаётся красной, а отчёт несёт её класс.
+    """
+    out = []
+    for o in (config.get("observations") or []):
+        out.append({"file": o.get("file"), "line": o.get("line"),
+                    "checker": o.get("checker"), "class": o.get("class"),
+                    "note": (o.get("note") or "").strip(), "matched": 0})
+    return out
+
+
+def observe(observations: list[dict], file: str, line: int, checker: str) -> str | None:
+    """Класс наблюдения для находки, если оно на неё заведено."""
+    for o in observations:
+        if o["file"] == file and int(o["line"]) == line and o["checker"] == checker:
+            o["matched"] += 1
+            return o["class"]
+    return None
+
+
 def load_scenarios(scen_dir: str) -> list[dict]:
     out = []
     for fn in sorted(os.listdir(scen_dir)):
@@ -568,10 +593,24 @@ def write_report(config: dict, payload: dict) -> tuple[str, str]:
     L.append("")
     if payload["findings"]:
         for f in payload["findings"]:
-            L.append(f"{f['file']}:{f['line']} {f['checker']} {f['message']}")
+            mark = f" [наблюдение: {f['observation']}]" if f.get("observation") else ""
+            L.append(f"{f['file']}:{f['line']} {f['checker']}{mark} {f['message']}")
     else:
         L.append("— пусто")
     L.append("")
+
+    if payload.get("observations"):
+        L.append("## Наблюдения")
+        L.append("")
+        L.append("Наблюдение не изымает находку и на вердикт не влияет: находка "
+                 "остаётся красной, отчёт несёт её класс.")
+        L.append("")
+        L.append("| адрес | чекер | класс | совпало | наблюдение |")
+        L.append("|---|---|---|---|---|")
+        for o in payload["observations"]:
+            L.append(f"| {o['file']}:{o['line']} | {o['checker']} | {o['class']} | "
+                     f"{o['matched']} | {o['note'] or '—'} |")
+        L.append("")
 
     if payload.get("infra"):
         L.append("## Инфраструктура")
@@ -659,6 +698,7 @@ def main(argv=None) -> int:
     paths = config.get("paths") or {}
     manifest = load_yaml(rel(paths.get("manifest", "linter/manifest.yaml"))) or {}
     checkers, skipped = load_checkers(manifest, args.kind)
+    observations = load_observations(config)
 
     ts = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     findings: list[tuple[str, Finding]] = []
@@ -721,9 +761,12 @@ def main(argv=None) -> int:
         "checkers_skipped": skipped,
         "ignores_applied": ignores_applied,
         "findings": [{"file": repo_rel(p), "line": f.line, "checker": f.checker,
-                      "severity": f.severity, "message": f.message}
+                      "severity": f.severity, "message": f.message,
+                      "observation": observe(observations, repo_rel(p), f.line,
+                                             f.checker)}
                      for p, f in sorted(findings, key=lambda x: (x[0], x[1].line,
                                                                  x[1].checker))],
+        "observations": observations,
         "meta": meta_rows,
         "registry": reg_rows,
         "infra": infra_rows,
@@ -740,7 +783,8 @@ def main(argv=None) -> int:
     print("## Находки")
     if payload["findings"]:
         for f in payload["findings"]:
-            print(f"{f['file']}:{f['line']} {f['checker']} {f['message']}")
+            mark = f" [наблюдение: {f['observation']}]" if f.get("observation") else ""
+            print(f"{f['file']}:{f['line']} {f['checker']}{mark} {f['message']}")
     else:
         print("— пусто")
     print()
@@ -748,6 +792,9 @@ def main(argv=None) -> int:
     print(f"- артефактов: {files_checked}; чекеров: {len(checkers)}; "
           f"находок: {len(payload['findings'])}")
     print(f"- изъятий применено: {ignores_applied}")
+    for o in observations:
+        print(f"- наблюдение [{o['class']}]: {o['file']}:{o['line']} {o['checker']} "
+              f"— совпало находок: {o['matched']}")
     for r in infra_rows:
         print(f"- инфраструктура [{r['class']}]: {r['check']} — {r['status']}"
               + (f"; {r['message']}" if r.get("message") else ""))

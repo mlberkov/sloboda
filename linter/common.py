@@ -104,3 +104,29 @@ def mask_spans(line: str, patterns: list[str]) -> str:
 
 def significant_chars(s: str) -> int:
     return sum(1 for ch in s if ch.isalnum())
+
+
+MD_HEADING = re.compile(r"^#{1,6}\s")
+
+
+def head_sections(lines: list[str], head_re, end_re, max_lines: int):
+    """Тела разделов, открываемых заголовком `head_re`.
+
+    Возвращает пары (первая, последняя) 1-индексных строк тела. Раздел кончается
+    на ближайшем из: markdown-заголовок, `end_re` («Конец хода»), следующий
+    такой же заголовок, `max_lines` строк. Границы — данные манифеста: они
+    общие у чекеров, читающих раздел «Ваши действия».
+    """
+    heads = [i for i, raw in enumerate(lines) if head_re.match(raw)]
+    out = []
+    for i in heads:
+        lo = i + 1                      # первая строка тела, 0-индексно
+        hi = min(len(lines), lo + max_lines)
+        for j in range(lo, hi):
+            if MD_HEADING.match(lines[j]) or end_re.match(lines[j]) \
+               or head_re.match(lines[j]):
+                hi = j
+                break
+        if lo < hi:
+            out.append((lo + 1, hi))    # 1-индексные границы включительно
+    return out
