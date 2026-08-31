@@ -59,7 +59,14 @@ checkers:
       min_verbs: 2
       # Чекеры, у которых без ограды нет предмета. Список читают двое: сам
       # модуль — чтобы назвать их в сообщении, и run.py — чтобы их погасить.
-      gates: [smoke_line, stop_provenance, shell_mech, env_presupposition, grep_vacuum]
+      # Список вырос 2026-08-31 при доборе корпуса до 20 сценариев: четыре
+      # новых чекера (run_id_filter, download_dir, gh_repo_scope,
+      # whitespace_diff) читают только shell-блок и на входе без оград
+      # дали бы тот же ноль находок. Список — данные ровно затем, чтобы
+      # расти вместе с полосой; сообщение чекера строится из него.
+      gates: [smoke_line, stop_provenance, shell_mech, env_presupposition,
+              grep_vacuum, run_id_filter, download_dir, gh_repo_scope,
+              whitespace_diff]
 
   - name: shell_mech
     module: linter.checkers.shell_mech
@@ -320,3 +327,102 @@ checkers:
       item_pattern: '^\s*(?:\d+[.)]|[-*+•])\s+'
       # action_verbs — общий словарь из `shared` выше: его же читает
       # artifact_integrity. Собственной копии здесь нет намеренно.
+
+  # ── Добор корпуса 2026-08-31: пять чекеров на пункты §11 с готовым оракулом
+  # в поле «Проверка». Отбор из восьми детерминируемых кандидатов — по частоте
+  # повода в §A/§B реестра правок канона (см. отчёт прогона и сценарии S-15…S-17,
+  # оставленные manual с пометкой «кандидат в чекеры»).
+
+  - name: detector_disposition
+    module: linter.checkers.detector_disposition
+    kinds: [handoff]
+    rule_id: R-DISPOSITION-012
+    scenario: S-14
+    description: >-
+      Ход вводит новый детектор, не называя мутацию и обе диспозиции —
+      предсказанную и наблюдённую.
+    config:
+      intro_patterns:
+        - '\bнов\w+\s+(?:чекер\w*|гард\w*|детектор\w*|ног[ауи]\b)'
+        - '\b(?:завожу|завед\w+|вношу|ввожу|вводит\w*)\s+(?:\w+\s+){0,2}?(?:чекер|гард|детектор)\w*'
+        - '\b(?:чекер|гард|детектор)\w*\s+(?:завед\w+|введ\w+|добавл\w+)'
+      slot_patterns:
+        - name: мутация
+          pattern: 'мутаци\w*'
+        - name: предсказанная диспозиция
+          pattern: 'предсказанн\w*\s+диспозиц\w*|диспозиц\w*\s*[:—–-]?\s*предсказ\w*|предсказ\w*\s+диспозиц\w*'
+        - name: наблюдённая диспозиция
+          pattern: 'наблюд[её]нн\w*\s+диспозиц\w*|диспозиц\w*\s*[:—–-]?\s*наблюд\w*|наблюд\w*\s+диспозиц\w*'
+
+  - name: run_id_filter
+    module: linter.checkers.run_id_filter
+    kinds: [handoff, spec]
+    rule_id: R-RUNID-008
+    scenario: S-10
+    description: >-
+      «Последний прогон» отобран позицией (`--limit 1`, `head -1`, `.[0]`)
+      без фильтра по событию и по sha.
+    config:
+      read_pattern: '\bgh\s+run\s+(?:list|view|download)\b'
+      positional_patterns:
+        - '(?:--limit|-L)\s+1\b'
+        - '\|\s*head\s+(?:-n\s*)?-?1\b'
+        - '\.\[0\]'
+        - '\bfirst\b\s*\('
+      # Пункт требует пары: событие без sha берёт чужой коммит, sha без события —
+      # push-прогон того же коммита. Оправдывают только обе ноги вместе.
+      event_pattern: '--event\b|--json[^|]*\bevent\b|\bevent\s*=='
+      sha_pattern: '--commit\b|(?<!\w)-c\s+\S|\bheadSha\b|\bhead_sha\b'
+
+  - name: download_dir
+    module: linter.checkers.download_dir
+    kinds: [handoff, spec]
+    rule_id: R-DOWNLOAD-009
+    scenario: S-11
+    description: >-
+      `gh run download` без `-D`/`--dir` либо с относительным путём: каталог
+      назначения остаётся внутри рабочего дерева.
+    config:
+      download_pattern: '\bgh\s+(?:run|release)\s+download\b'
+      dir_pattern: '(?:-D|--dir)[=\s]+(\S+)'
+      # «Вне дерева» опознаётся по началу пути: линтер читает текст, не диск.
+      outside_prefixes: ['^/', '^~', '^\$TMPDIR', '^\$\{TMPDIR', '^\$\(mktemp']
+
+  - name: gh_repo_scope
+    module: linter.checkers.gh_repo_scope
+    kinds: [handoff, spec]
+    rule_id: R-GHREPO-010
+    scenario: S-12
+    description: >-
+      `gh` ниже по блоку после ухода в каталог-черновик — без `--repo`.
+    config:
+      # Дословные формы повода пункта: уход в /tmp и аналоги. `cd ~/repo` —
+      # переход в другой репозиторий, а не выход из дерева, и не краснеет:
+      # какой каталог является рабочим деревом, из текста хода не выводится.
+      leave_patterns:
+        - '(?:^|[;&|]\s*)cd\s+["'']?(/tmp|/var/tmp)\b'
+        - '(?:^|[;&|]\s*)cd\s+["'']?\$\{?TMPDIR'
+        - '(?:^|[;&|]\s*)cd\s+["'']?\$\(mktemp'
+        - '(?:^|[;&|]\s*)cd\s+["'']?\.\.(?:/|\s|$)'
+      gh_pattern: '(?<![\w-])gh\s+[a-z]'
+      absolved_same_line: '--repo\b|(?<![\w-])-R\s+\S'
+      absolved_in_block: '\bGH_REPO='
+
+  - name: whitespace_diff
+    module: linter.checkers.whitespace_diff
+    kinds: [handoff, spec]
+    rule_id: R-WHITESPACE-011
+    scenario: S-13
+    description: >-
+      Счётчик правки (`--stat`/`--numstat`) в блоке без диффа с фильтром
+      пробелов и без пометки «только о факте различия».
+    config:
+      counter_pattern: '\bgit\s+(?:diff|show|log)\b[^\n]*?(?:--stat|--numstat|--shortstat)\b'
+      filter_pattern: '\bgit\s+diff\b[^\n]*?(?:(?<![\w-])-w\b|(?<![\w-])-b\b|--ignore-all-space|--ignore-space-change|--ignore-cr-at-eol)'
+      # «Допустимые попадания» пункта — утверждение без притязания на содержание;
+      # опознаётся пометкой в прозе вокруг блока, а не смыслом утверждения.
+      hedge_patterns:
+        - 'только\s+о\s+факте\s+различи'
+        - 'без\s+притязани\w*\s+на\s+содержани'
+        - 'отличаетс\w*\s+от\s+`?HEAD`?'
+      hedge_window: 3

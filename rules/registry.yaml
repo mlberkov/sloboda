@@ -94,3 +94,113 @@ rules:
       Секция включает абзац «Жёсткие ограничения: после handoff-блока — никакого
       нового анализа…» того же блока прозы: по разбору bold_lead_v0 она кончается
       перед следующим пунктом «Область действия §7» (строка 117).
+
+  # ── Добор корпуса до 20 сценариев (2026-08-31). Источник — не выдумка: каждый
+  # пункт ниже несёт в каноне поля «Повод» (реальная трасса) и «Проверка»
+  # (готовый оракул), они и легли в given/action/expected сценариев S-10…S-20.
+
+  - rule_id: R-RUNID-008
+    source:
+      file: 01-theygrow/operations/theygrow-delivery-contract.md
+      section: "§11"
+      heading: "Идентификатор прогона — фильтром, не позицией (добавлено 2026-08-22, разбор закрытия L3; уточняет «Провенанс утверждений оркестратора» выше)."
+      lines_at_binding: "191-191"
+    content_hash: "719d86bae4b995041288c882c34cd31bf90c5d3bfcdf1a39c77ea26bd221f4ae"
+    classes: [К2]
+
+  - rule_id: R-DOWNLOAD-009
+    source:
+      file: 01-theygrow/operations/theygrow-delivery-contract.md
+      section: "§11"
+      heading: "Выгрузка артефактов — вне рабочего дерева (добавлено 2026-08-22, разбор закрытия L3; дополняет «Исполнимость shell-блока» выше)."
+      lines_at_binding: "204-204"
+    content_hash: "7552baff15a260f2e1eb72ca42d1645a5d947db671b5d7ec7234839e716ec23a"
+    classes: [К3]
+
+  - rule_id: R-GHREPO-010
+    source:
+      file: 01-theygrow/operations/theygrow-delivery-contract.md
+      section: "§11"
+      heading: "`gh` вне рабочего дерева — с явным `--repo` (добавлено 2026-08-23, разбор milestone PPR)."
+      lines_at_binding: "206-206"
+    content_hash: "01819a919197628aaac109b478fa7afe3a0e49f04aca63b8c997f99b581a5fad"
+    classes: [К3]
+
+  - rule_id: R-WHITESPACE-011
+    source:
+      file: 01-theygrow/operations/theygrow-delivery-contract.md
+      section: "§11"
+      heading: "Содержательность правки — после фильтра пробелов, не по счётчикам (добавлено 2026-08-25, разбор сессии security-каденции)."
+      lines_at_binding: "197-197"
+    content_hash: "7d810c9e51ddb70738262c3c8ebd5c26e246a2b7cea1fd195d9e5f35e6aca8e6"
+    classes: [К2]
+
+  - rule_id: R-DISPOSITION-012
+    source:
+      file: 01-theygrow/operations/theygrow-delivery-contract.md
+      section: "§11"
+      heading: "Новый детектор принимается по наблюдённой диспозиции (добавлено 2026-08-28, разбор milestone UIP)."
+      lines_at_binding: "218-218"
+    content_hash: "dec590842163e1d34fb10122db6c8de8965f9a05d5712c97d1f0f409c2b81cff"
+    classes: [К7]
+    note: >-
+      Единственный из добора, чей повод занесён в §A реестра правок канона
+      (2026-08-28, К7: четыре гарда покраснели на самих себе, три предсказания
+      разошлись с измерением). По частоте повода в §A/§B — первый кандидат в чекеры.
+
+  - rule_id: R-GITGREP-013
+    source:
+      file: 01-theygrow/operations/theygrow-delivery-contract.md
+      section: "§11"
+      heading: "Отслеживаемое проверяется `git grep`, не файловым grep (добавлено 2026-08-23, разбор milestone PPR)."
+      lines_at_binding: "195-195"
+    content_hash: "190a9149c1c215223590c56f6921998d129b50725e399e5eafcead041401530d"
+    classes: [К2]
+
+  - rule_id: R-ACCEPT-014
+    source:
+      file: 01-theygrow/operations/theygrow-delivery-contract.md
+      section: "§11"
+      heading: "Условие приёма нового пункта контракта (добавлено 2026-08-10, owner-акт, ретроспектива уборки; дом правила — [[00-system/CLAUDE|CLAUDE.md]] «Правила о правилах»)."
+      lines_at_binding: "212-212"
+    content_hash: "299465e870289cb0d25c549159a1e41b77c176b48fc4ac73fead027f43d2311b"
+    classes: [К7]
+
+  - rule_id: R-BILINGUAL-015
+    source:
+      file: 01-theygrow/operations/theygrow-delivery-contract.md
+      section: "§7"
+      heading: "Двуязычный режим:"
+      lines_at_binding: "135-135"
+    content_hash: "628949ee0c9db41e8dffa4d2e712034c3a721bdc5b7d2a5b4d10d94438d79c76"
+    classes: [К4]
+    note: >-
+      Единственный пункт добора без поля «Повод»: внесён 2026-06-29 как форма, а
+      не по разбору инцидента. Отсюда и место в очереди чекеров — последнее.
+
+  - rule_id: R-VAULTIO-016
+    source:
+      file: 01-theygrow/operations/theygrow-delivery-contract.md
+      section: "§7"
+      heading: "Верность носителю при vault-записи (предусловие, добавлено 2026-07-02)."
+      lines_at_binding: "133-133"
+    content_hash: "7bd8f227020e34c7bb45bf3d05d11fb70bfe1c9be4df9cde5cf8d1b179300d74"
+    classes: [К5]
+
+  - rule_id: R-DATEDFACT-017
+    source:
+      file: 01-theygrow/operations/theygrow-delivery-contract.md
+      section: "§11"
+      heading: "Датированный внешний факт в решении — только из чтения дня письма (добавлено 2026-08-21, планирующая сессия «стор + L3»; повод: три посылки опенера, сохранённые строкой лога 08-18, разошлись с первоисточниками при чтении 08-21 — продление API 36 неприменимо соответствующим приложениям; аккаунт ограниченного распространения снял посылку «верификация нужна обоим маршрутам»; Play App Signing оказался незамеченным узлом кастодии ключа)."
+      lines_at_binding: "208-208"
+    content_hash: "c2c5061413347c53c223c76f87bf8851a9624363450668481a65c801041ec01d"
+    classes: [К1]
+
+  - rule_id: R-PUBLICDOC-018
+    source:
+      file: 01-theygrow/operations/theygrow-delivery-contract.md
+      section: "§11"
+      heading: "Публичный документ проходится по классу, а не по названным местам (добавлено 2026-08-28, разбор milestone UIP)."
+      lines_at_binding: "216-216"
+    content_hash: "b4c9f6628af934be5481dc971cc75b4833e609f0f4fbf7eba836101d4e5286be"
+    classes: [К6]
