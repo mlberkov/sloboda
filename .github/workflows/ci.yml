@@ -1,0 +1,51 @@
+# Гейт полосы «Система» на свежем чекауте.
+#
+# Доказательство «прогон не требует вольта» здесь структурное: раннер — чистая
+# машина, вольта на ней нет физически (шаг «вольта нет» это и проверяет), и
+# зелёный job и есть доказательство. `run.py --full` тут не запускается
+# намеренно: без клона вольта он краснеет infra-статусом clone_missing —
+# отсутствие опоры прогона, а не вердикт о предмете.
+#
+# КОНТРАКТ ИМЕНИ. Обязательной проверкой branch protection для main становится
+# строка `gate` — имя job'а ниже. Оно задано полем `name:` (не выводится из
+# ключа job'а и не зависит от имени этого файла), и матрица здесь не заводится:
+# матрица дописала бы параметры в имя проверки («gate (3.12)»), и её смена молча
+# сняла бы обязательную проверку — слияние прошло бы мимо гейта при формально
+# включённой защите. Имя закреплено тестом tests/test_ci_contract.py.
+name: gate
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  gate:
+    name: gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: вольта нет физически
+        run: |
+          test ! -e "$HOME/vaults/theygrow-vault"
+          test ! -e /mnt/d/Obsidian/TheyGrow
+          echo "вольт на раннере отсутствует: прогоны ниже его не читают"
+
+      - name: .venv как у владельца
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: pytest
+        run: .venv/bin/python -m pytest
+
+      - name: pre-commit run --all-files
+        run: .venv/bin/pre-commit run --all-files --show-diff-on-failure
+
+      - name: линтер без вольта
+        run: .venv/bin/python run.py --fast linter/fixtures/green/*.md --no-report

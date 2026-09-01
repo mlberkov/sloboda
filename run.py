@@ -233,6 +233,67 @@ def _porcelain_paths(out: str) -> list[str]:
     return paths
 
 
+def registry_source_files(registry: dict) -> set[str]:
+    """Файлы канона, на которые ссылается реестр: `rules[].source.file`.
+
+    Набор выводится из реестра в момент прогона, а не задаётся списком в
+    конфиге: список разошёлся бы с реестром молча, и сужение стало бы триггером
+    по форме — ровно тем, от которого оно и уводит.
+    """
+    out: set[str] = set()
+    for rule in (registry or {}).get("rules") or []:
+        src = (rule.get("source") or {}) if isinstance(rule, dict) else {}
+        path = (src.get("file") or "").strip()
+        if path:
+            out.add(path)
+    return out
+
+
+def is_bound(path: str, bound_files: set[str]) -> bool:
+    """Связан ли путь `status --porcelain` с реестром.
+
+    Прямое совпадение либо неотслеживаемый каталог `X/`: git показывает такой
+    каталог одной строкой, и правка связанного файла внутри него видна только
+    префиксом. Каталог, содержащий связанный файл, считается связанным —
+    иначе сужение молча прятало бы правку под именем каталога.
+    """
+    if path in bound_files:
+        return True
+    if path.endswith("/"):
+        return any(bf.startswith(path) for bf in bound_files)
+    return False
+
+
+def split_bound(paths, bound_files: set[str]) -> tuple[list[str], list[str]]:
+    """(связанные, прочие). Пустой набор связанных файлов — сужать нечем:
+    все пути считаются связанными, то есть поведение до сужения."""
+    paths = list(paths)
+    if not bound_files:
+        return paths, []
+    bound = [p for p in paths if is_bound(p, bound_files)]
+    return bound, [p for p in paths if not is_bound(p, bound_files)]
+
+
+def listing(paths: list[str], limit: int = 4) -> str:
+    shown = ", ".join(paths[:limit])
+    return shown + (f" и ещё {len(paths) - limit}" if len(paths) > limit else "")
+
+
+def evidence(bound: list[str], unbound: list[str], bound_files: set[str]) -> str:
+    """Свидетельство детектора: оба перечня раздельно и подписанно.
+
+    Вердикт держит связанный набор, но печатаются все пути: владелец, коммитящий
+    по сообщению, где названы не все грязные пути, закоммитит не всё.
+    """
+    if not bound_files:
+        return (f"{listing(bound)}; набор связанных файлов из реестра не выведен — "
+                f"сужать нечем, красным считается любой путь канона")
+    parts = [f"связанные с правилами реестра: {listing(bound)}"]
+    parts.append(f"прочие пути канона: {listing(unbound)}" if unbound
+                 else "прочих путей канона нет")
+    return "; ".join(parts)
+
+
 def check_clone_remote(config: dict) -> dict:
     """Канал 1: клон вольта против своей удалённой ветки.
 
@@ -307,7 +368,8 @@ def check_clone_remote(config: dict) -> dict:
     return {"row": row, "reds": reds, "warnings": warns}
 
 
-def check_vault_master(config: dict, clone_raw: str, clone_head: str | None) -> dict:
+def check_vault_master(config: dict, clone_raw: str, clone_head: str | None,
+                       bound_files: set[str] | None = None) -> dict:
     """Канал 2: рабочая копия вольта против клона.
 
     Канала 1 мало: он сравнивает клон с его remote и зеленеет ровно тогда,
@@ -316,18 +378,34 @@ def check_vault_master(config: dict, clone_raw: str, clone_head: str | None) -> 
     другой. Здесь читается сама рабочая копия: `git status --porcelain` и
     `git rev-parse HEAD`. Оба вызова читающие, в вольт ничего не пишется.
 
-    Типизированные итоги: ok | vault_uncommitted | vault_ahead_of_clone |
-    vault_master_unreachable. Недоступность пути (не WSL, диск не смонтирован,
-    git отказал читать чужой по владельцу репозиторий) — предупреждение, а не
-    зелёный: свежесть не измерена, а не подтверждена.
+    Красным считается расхождение **по связанным файлам**: `bound_files` —
+    набор `rules[].source.file`, выведенный из реестра в момент прогона. Правка
+    файла канона, на который не ссылается ни одно правило (запись оркестратора
+    в `00-system/log.md`), ни одного `content_hash` не двигает: она даёт
+    предупреждение, а не красный. Триггер по инварианту, а не по форме пути.
+    Набор пуст (реестр не прочитан либо в нём нет `source.file`) — сужать нечем,
+    и красным считается любой грязный путь канона, как до сужения.
+
+    Вердикт держит связанный набор, но свидетельство печатается целиком: оба
+    перечня, связанный и прочий, называются раздельно и подписанно. Владелец,
+    коммитящий по сообщению, где названы не все грязные пути, закоммитит не всё.
+
+    Типизированные итоги: ok | vault_uncommitted | vault_uncommitted_unbound |
+    vault_ahead_of_clone | vault_ahead_unbound | vault_master_unreachable.
+    Недоступность пути (не WSL, диск не смонтирован, git отказал читать чужой по
+    владельцу репозиторий) — предупреждение, а не зелёный: свежесть не измерена,
+    а не подтверждена.
     """
     vault = config.get("vault") or {}
     raw = vault.get("master_path")
     canon_paths = tuple(vault.get("canon_paths") or DEFAULT_CANON_PATHS)
     master = os.path.expanduser(raw) if raw else None
+    bound_files = set(bound_files or ())
     row = {"class": INFRA, "check": "vault_master", "master": raw,
            "canon_paths": list(canon_paths), "head": None, "clone_head": clone_head,
-           "dirty_canon": None, "ahead": None, "status": "ok", "message": None}
+           "dirty_canon": None, "bound_files": sorted(bound_files),
+           "dirty_bound": None, "dirty_unbound": None, "ahead": None,
+           "ahead_files": None, "status": "ok", "message": None}
     reds: list[str] = []
     warns: list[str] = []
 
@@ -375,15 +453,24 @@ def check_vault_master(config: dict, clone_raw: str, clone_head: str | None) -> 
     dirty = sorted({p for p in _porcelain_paths(porcelain)
                     if any(p.startswith(c) for c in canon_paths)})
     row["dirty_canon"] = dirty
-    if dirty:
-        shown = ", ".join(dirty[:4])
-        tail = f" и ещё {len(dirty) - 4}" if len(dirty) > 4 else ""
+    dirty_bound, dirty_unbound = split_bound(dirty, bound_files)
+    row["dirty_bound"], row["dirty_unbound"] = dirty_bound, dirty_unbound
+    if dirty_bound:
         statuses.append("vault_uncommitted")
         reds.append(f"[{INFRA}] vault_uncommitted: в рабочей копии вольта {raw} "
-                    f"незакоммичены изменения по путям канона ({shown}{tail}) — "
-                    f"клон их не видит, хэши считались бы по канону без этих правок; "
-                    f"владельцу закоммитить и запушить их, затем "
+                    f"незакоммичены изменения по путям канона "
+                    f"({evidence(dirty_bound, dirty_unbound, bound_files)}) — "
+                    f"клон их не видит, хэши связанных правил считались бы по канону "
+                    f"без этих правок; владельцу закоммитить и запушить все "
+                    f"перечисленные пути, затем "
                     f"`git -C {clone_raw} pull --ff-only` и повторить прогон")
+    elif dirty_unbound:
+        statuses.append("vault_uncommitted_unbound")
+        warns.append(f"[{INFRA}] vault_uncommitted_unbound: в рабочей копии вольта "
+                     f"{raw} незакоммичены изменения по путям канона "
+                     f"({listing(dirty_unbound)}), но ни один из них не назван в "
+                     f"rules[].source.file — ни один content_hash реестра от них "
+                     f"не зависит, и вердикт прогона они не меняют")
 
     if not clone_head:
         warns.append(f"[{INFRA}] vault_ahead_unknown: HEAD клона {clone_raw} не измерен "
@@ -399,38 +486,49 @@ def check_vault_master(config: dict, clone_raw: str, clone_head: str | None) -> 
                               f"{clone_head}..{head}")
             ahead = int(cnt) if rc == 0 and cnt.isdigit() else None
         row["ahead"] = ahead
+        # Состав правки: сузить можно только по измеренному. Коммит, клону
+        # неизвестный (не запушен), состава не даёт — там сужать нечем.
+        changed = None
+        if known:
+            rc, names, _ = _git(os.path.expanduser(clone_raw), "diff", "--name-only",
+                                f"{clone_head}..{head}")
+            if rc == 0:
+                changed = sorted({p for p in names.splitlines() if p.strip()})
+        row["ahead_files"] = changed
         if ahead == 0:
             warns.append(f"[{INFRA}] vault_behind_clone: HEAD рабочей копии вольта "
                          f"{raw} ({head[:8]}) — предок HEAD клона ({clone_head[:8]}): "
                          f"клон читает канон новее, чем лежит в вольте")
         else:
-            statuses.append("vault_ahead_of_clone")
-            detail = (f"на {ahead} коммит(ов)" if ahead
-                      else f"коммит {head[:8]} клону неизвестен (не запушен)")
-            reds.append(f"[{INFRA}] vault_ahead_of_clone: HEAD рабочей копии вольта "
-                        f"{raw} ({head[:8]}) впереди клона ({clone_head[:8]}) {detail} — "
-                        f"клон читает устаревший канон; владельцу запушить вольт, затем "
-                        f"`git -C {clone_raw} pull --ff-only` и повторить прогон")
+            ahead_bound, ahead_unbound = split_bound(changed or [], bound_files)
+            narrowed = changed is not None and bool(bound_files)
+            if narrowed and not ahead_bound:
+                statuses.append("vault_ahead_unbound")
+                warns.append(f"[{INFRA}] vault_ahead_unbound: HEAD рабочей копии вольта "
+                             f"{raw} ({head[:8]}) впереди клона ({clone_head[:8]}) на "
+                             f"{ahead} коммит(ов), но правка трогает только "
+                             f"({listing(ahead_unbound)}) — ни один из этих путей не "
+                             f"назван в rules[].source.file, и ни один content_hash "
+                             f"реестра от них не зависит")
+            else:
+                statuses.append("vault_ahead_of_clone")
+                detail = (f"на {ahead} коммит(ов)" if ahead
+                          else f"коммит {head[:8]} клону неизвестен (не запушен)")
+                seen = (evidence(ahead_bound, ahead_unbound, bound_files) if changed
+                        is not None else "состав правки не измерен: коммита нет в "
+                        "клоне — сужать по связанным файлам нечем")
+                reds.append(f"[{INFRA}] vault_ahead_of_clone: HEAD рабочей копии вольта "
+                            f"{raw} ({head[:8]}) впереди клона ({clone_head[:8]}) {detail} "
+                            f"({seen}) — клон читает устаревший канон; владельцу "
+                            f"запушить вольт, затем "
+                            f"`git -C {clone_raw} pull --ff-only` и повторить прогон")
 
     row["status"] = "+".join(statuses) if statuses else "ok"
     row["message"] = (f"HEAD {head[:8]}"
                       + (f" ↔ клон {clone_head[:8]}" if clone_head else "")
-                      + f", незакоммиченных путей канона: {len(dirty)}")
+                      + f", незакоммиченных путей канона: {len(dirty)}"
+                      + f" (связанных с реестром: {len(dirty_bound)})")
     return {"row": row, "reds": reds, "warnings": warns}
-
-
-def check_clone_freshness(config: dict) -> dict:
-    """Свежесть канона под прогоном — двумя независимыми каналами.
-
-    Канал 1 (клон ↔ его remote) и канал 2 (рабочая копия вольта ↔ клон).
-    Одного первого мало: он зеленеет, пока правка канона не закоммичена.
-    """
-    first = check_clone_remote(config)
-    clone_raw = (config.get("vault") or {}).get("clone_path", DEFAULT_CLONE)
-    second = check_vault_master(config, clone_raw, first["row"].get("head"))
-    return {"rows": [first["row"], second["row"]],
-            "reds": first["reds"] + second["reds"],
-            "warnings": first["warnings"] + second["warnings"]}
 
 
 # ─────────────────────────── реестр и сценарии ───────────────────────────
@@ -851,12 +949,24 @@ def main(argv=None) -> int:
         warnings.extend(mt["warnings"])
 
         # Свежесть клона — предпосылка пересчёта хэшей: меряется до него.
-        fresh = check_clone_freshness(config)
-        infra_rows.extend(fresh["rows"])
-        reds.extend(fresh["reds"])
-        warnings.extend(fresh["warnings"])
-
+        # Каналов два, и одного первого мало: канал 1 (клон ↔ его remote)
+        # зеленеет ровно тогда, когда правка канона лежит в рабочей копии вольта
+        # незакоммиченной, поэтому канал 2 (рабочая копия ↔ клон) читает саму
+        # рабочую копию. Реестр грузится до них: канал 2 сужает красный по
+        # `rules[].source.file`, и набор связанных файлов выводится из того же
+        # объекта реестра, по которому дальше идёт пересчёт хэшей.
         registry = load_yaml(rel(paths.get("registry", "rules/registry.yaml"))) or {}
+        bound_files = registry_source_files(registry)
+
+        first = check_clone_remote(config)
+        clone_raw = (config.get("vault") or {}).get("clone_path", DEFAULT_CLONE)
+        second = check_vault_master(config, clone_raw, first["row"].get("head"),
+                                    bound_files)
+        for channel in (first, second):
+            infra_rows.append(channel["row"])
+            reds.extend(channel["reds"])
+            warnings.extend(channel["warnings"])
+
         scenarios = load_scenarios(rel(paths.get("scenarios", "scenarios")))
         rc = check_registry(config, registry, scenarios)
         reg_rows = rc["rows"]
