@@ -1,0 +1,37 @@
+# Гейт коммита полосы «Система».
+#
+# Все хуки локальные (`repo: local`, `language: system`): гейт не зависит ни от
+# сети, ни от сторонних ревизий. Точка входа — `.venv/bin/python`: CLAUDE.md уже
+# требует .venv, и CI создаёт его тем же способом, поэтому команда одна и та же
+# в обеих средах.
+#
+# Автоправящих хуков здесь нет намеренно. `trailing-whitespace` и подобные
+# переписали бы linter/fixtures/red/*.md — а это предмет измерения: фикстура
+# держит дефект, по которому чекер обязан краснеть. Гейт, чинящий предмет,
+# измеряет собственную правку.
+#
+# Крюк живёт в .git/hooks/pre-commit, с `git clone` не приходит и пересоздание
+# клона не переживает: установка — `.venv/bin/pre-commit install` (CLAUDE.md,
+# «Гейт коммита и CI»). Страховка на неустановленный крюк — job `gate` в CI.
+repos:
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest — харнесс полосы
+        entry: .venv/bin/python -m pytest
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: linter-fast-green
+        name: run.py --fast по green-фикстурам (вольт не нужен)
+        entry: bash -c '.venv/bin/python run.py --no-report --fast linter/fixtures/green/*.md'
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      - id: yaml-parse
+        name: YAML разбирается (конфиг, манифест, реестр, сценарии)
+        entry: .venv/bin/python -c "import sys, yaml; [yaml.safe_load(open(p, encoding='utf-8')) for p in sys.argv[1:]]"
+        language: system
+        files: \.(ya?ml)$
