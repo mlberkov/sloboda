@@ -136,9 +136,11 @@ class VaultPair:
                   "status: active\n")
 
     def config(self) -> dict:
+        """Конфиг прогона под пару. Путей вольта в нём нет: они приходят только
+        из окружения (run.ENV_CLONE / run.ENV_MASTER), и фикстура `vault_pair`
+        ставит их на эту пару."""
         return {
-            "vault": {"clone_path": self.clone, "master_path": self.master,
-                      "canon_paths": ["00-system/", "01-theygrow/operations/"]},
+            "vault": {"canon_paths": ["00-system/", "01-theygrow/operations/"]},
             "paths": {"registry": self.registry_path, "scenarios": self.scenarios_dir,
                       "manifest": "linter/manifest.yaml", "fixtures": "linter/fixtures",
                       "reports": self.reports},
@@ -171,8 +173,19 @@ class VaultPair:
 
 
 @pytest.fixture
-def vault_pair(tmp_path):
-    return VaultPair(tmp_path)
+def vault_pair(tmp_path, monkeypatch):
+    """Пара вольта плюс окружение, её адресующее.
+
+    Переменные ставятся здесь, а не в конфиге: пути вольта берутся только из
+    окружения, и у владельца они заданы на живой вольт. Без подмены тест ушёл
+    бы читать вольт владельца — ровно то, что запрещено (CLAUDE.md, «в вольт не
+    писать»; вольт владельца тесты не читают).
+    """
+    import run
+    pair = VaultPair(tmp_path)
+    monkeypatch.setenv(run.ENV_CLONE, pair.clone)
+    monkeypatch.setenv(run.ENV_MASTER, pair.master)
+    return pair
 
 
 def parse_run_output(text: str) -> dict:
