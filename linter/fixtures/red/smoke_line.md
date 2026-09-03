@@ -19,7 +19,7 @@ grep -c "Версия 1.3" public/policy.html
 2. Прогнать линтер полосы и прислать вердикт:
 
 ```bash
-cd ~/sloboda && .venv/bin/python run.py --full; echo "код выхода: $?"
+cd ~/altrego && .venv/bin/python run.py --full; echo "код выхода: $?"
 ```
 
 **Конец хода:** нужно слово владельца — подтвердить, что обе строки выше он готов прогнать у себя.

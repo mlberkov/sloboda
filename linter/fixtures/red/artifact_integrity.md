@@ -6,8 +6,8 @@
 
 ## Ваши действия
 
-1. Прогнать линтер на фикстурах и прислать вывод целиком: cd ~/sloboda && .venv/bin/python run.py --full; echo "код выхода: $?"
+1. Прогнать линтер на фикстурах и прислать вывод целиком: cd ~/altrego && .venv/bin/python run.py --full; echo "код выхода: $?"
 
-2. После зелёного вердикта закоммитить полосу и запушить: cd ~/sloboda && git add -A && git commit -m "feat: чекер artifact_integrity" && git push
+2. После зелёного вердикта закоммитить полосу и запушить: cd ~/altrego && git add -A && git commit -m "feat: чекер artifact_integrity" && git push
 
 **Конец хода:** жду вывод и хэш коммита — по ним закрывается S-09.

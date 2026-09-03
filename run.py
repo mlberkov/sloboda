@@ -185,10 +185,32 @@ def repo_rel(path: str) -> str:
 
 # ───────────────────── свежесть канона под прогоном ──────────────────────
 
-DEFAULT_CLONE = "~/vaults/theygrow-vault"
+# Пути вольта приходят только из окружения. Репозиторий не носит ни машины
+# владельца, ни умолчания на неё: умолчание сделало бы «вольт не адресован»
+# неотличимым от «вольт прочитан», а зелёный на неверном пути — ложным.
+# Незаданная переменная — типизированный отказ опоры (vault_env_unset), а не
+# откат на путь: канал 1 краснеет, канал 2 предупреждает (свежесть не измерена,
+# а не подтверждена). `--fast` вольта не касается и работает при обеих снятых.
+ENV_CLONE = "ALTREGO_VAULT_CLONE"
+ENV_MASTER = "ALTREGO_VAULT_MASTER"
 
 # Пути канона внутри вольта: правка вне них хэшей реестра не касается.
 DEFAULT_CANON_PATHS = ("00-system/", "01-theygrow/operations/", "02-synthesis/")
+
+
+def env_path(name: str) -> str | None:
+    """Значение переменной окружения; пустая и незаданная равнозначны."""
+    raw = (os.environ.get(name) or "").strip()
+    return raw or None
+
+
+def vault_clone() -> str | None:
+    return env_path(ENV_CLONE)
+
+
+def vault_master() -> str | None:
+    return env_path(ENV_MASTER)
+
 
 # Отказ git читать репозиторий, принадлежащий другому пользователю. Для
 # /mnt/… из WSL это штатный случай, а не поломка: он называется отдельно и
@@ -301,11 +323,16 @@ def check_clone_remote(config: dict) -> dict:
     получил бы зелёный на устаревшем предмете. Поэтому отставание — красный,
     но класса infra: это отказ опоры прогона, а не вердикт чекера об артефакте.
     Типизированные итоги: ok | clone_behind_vault | clone_freshness_unknown |
-    clone_missing. Сам вызов читающий: fetch трогает только remote-ссылки клона,
-    рабочее дерево вольта не меняется.
+    clone_missing | vault_env_unset. Сам вызов читающий: fetch трогает только
+    remote-ссылки клона, рабочее дерево вольта не меняется.
+
+    `config` путь клона больше не несёт (он приходит из окружения), но остаётся
+    в сигнатуре: она — контракт канала. Сужение по связанным файлам реестра
+    касается только канала 2, и закрытая сигнатура держит это на месте
+    (tests/test_vault_scope.py::test_clone_remote_signature_takes_only_config).
     """
-    raw = (config.get("vault") or {}).get("clone_path", DEFAULT_CLONE)
-    clone = os.path.expanduser(raw)
+    raw = vault_clone()
+    clone = os.path.expanduser(raw) if raw else None
     row = {"class": INFRA, "check": "clone_freshness", "clone": raw,
            "branch": None, "upstream": None, "head": None, "remote_head": None,
            "behind": None, "ahead": None, "status": "ok", "message": None}
@@ -316,6 +343,13 @@ def check_clone_remote(config: dict) -> dict:
         row["status"], row["message"] = status, message
         reds.append(f"[{INFRA}] {status}: {message}")
         return {"row": row, "reds": reds, "warnings": warns}
+
+    if not raw:
+        return fail("vault_env_unset",
+                    f"переменная окружения {ENV_CLONE} не задана — вольт-клон не "
+                    f"адресован: пересчёт хэшей не на чем основывать, и умолчания "
+                    f"на путь владельца в репозитории нет; владельцу задать "
+                    f"{ENV_CLONE} и повторить прогон")
 
     if not os.path.isdir(os.path.join(clone, ".git")):
         return fail("clone_missing",
@@ -391,13 +425,13 @@ def check_vault_master(config: dict, clone_raw: str, clone_head: str | None,
     коммитящий по сообщению, где названы не все грязные пути, закоммитит не всё.
 
     Типизированные итоги: ok | vault_uncommitted | vault_uncommitted_unbound |
-    vault_ahead_of_clone | vault_ahead_unbound | vault_master_unreachable.
-    Недоступность пути (не WSL, диск не смонтирован, git отказал читать чужой по
-    владельцу репозиторий) — предупреждение, а не зелёный: свежесть не измерена,
-    а не подтверждена.
+    vault_ahead_of_clone | vault_ahead_unbound | vault_master_unreachable |
+    vault_env_unset. Недоступность пути (не WSL, диск не смонтирован, git отказал
+    читать чужой по владельцу репозиторий) и незаданная переменная —
+    предупреждение, а не зелёный: свежесть не измерена, а не подтверждена.
     """
     vault = config.get("vault") or {}
-    raw = vault.get("master_path")
+    raw = vault_master()
     canon_paths = tuple(vault.get("canon_paths") or DEFAULT_CANON_PATHS)
     master = os.path.expanduser(raw) if raw else None
     bound_files = set(bound_files or ())
@@ -409,9 +443,9 @@ def check_vault_master(config: dict, clone_raw: str, clone_head: str | None,
     reds: list[str] = []
     warns: list[str] = []
 
-    def unmeasured(message: str) -> dict:
-        row["status"], row["message"] = "vault_master_unreachable", message
-        warns.append(f"[{INFRA}] vault_master_unreachable: {message}")
+    def unmeasured(message: str, status: str = "vault_master_unreachable") -> dict:
+        row["status"], row["message"] = status, message
+        warns.append(f"[{INFRA}] {status}: {message}")
         return {"row": row, "reds": reds, "warnings": warns}
 
     def dubious(action: str) -> dict:
@@ -423,9 +457,10 @@ def check_vault_master(config: dict, clone_raw: str, clone_head: str | None,
             f"незакоммиченная правка канона прогоном не измерена")
 
     if not raw:
-        return unmeasured("в config.yaml нет vault.master_path — рабочая копия "
-                          "вольта не читалась: незакоммиченная правка канона "
-                          "прогоном не измерена")
+        return unmeasured(f"переменная окружения {ENV_MASTER} не задана — рабочая "
+                          f"копия вольта не читалась: незакоммиченная правка канона "
+                          f"прогоном не измерена, а не подтверждена",
+                          status="vault_env_unset")
     if not os.path.isdir(os.path.join(master, ".git")):
         return unmeasured(f"рабочая копия вольта {raw} недоступна (нет {master}/.git) — "
                           f"не WSL либо диск не смонтирован: незакоммиченная правка "
@@ -546,7 +581,10 @@ def scenario_refs(s: dict) -> list[dict]:
 
 
 def check_registry(config: dict, registry: dict, scenarios: list[dict]) -> dict:
-    clone = (config.get("vault") or {}).get("clone_path", DEFAULT_CLONE)
+    # Клон не адресован — хэши не пересчитываются ни по какому пути: пустая
+    # строка даёт UNRESOLVED по каждому правилу, а красный за отсутствие опоры
+    # уже поставлен каналом 1 (vault_env_unset).
+    clone = vault_clone() or ""
     reds: list[str] = []
     warns: list[str] = []
     rows: list[dict] = []
@@ -959,7 +997,9 @@ def main(argv=None) -> int:
         bound_files = registry_source_files(registry)
 
         first = check_clone_remote(config)
-        clone_raw = (config.get("vault") or {}).get("clone_path", DEFAULT_CLONE)
+        # Клон не адресован — в лечении красных стоит имя переменной, а не пустая
+        # строка: `git -C "$ALTREGO_VAULT_CLONE" pull --ff-only` исполним как есть.
+        clone_raw = vault_clone() or f'"${ENV_CLONE}"'
         second = check_vault_master(config, clone_raw, first["row"].get("head"),
                                     bound_files)
         for channel in (first, second):

@@ -8,7 +8,7 @@
 1. Прогнать линтер на фикстурах и прислать вывод целиком:
 
 ```bash
-cd ~/sloboda && .venv/bin/python run.py --full; echo "код выхода: $?"
+cd ~/altrego && .venv/bin/python run.py --full; echo "код выхода: $?"
 ```
 
 Ожидаемо: вердикт ЗЕЛЁНЫЙ, код выхода 0 — фактический вывод на предмете, измерено оркестратором 2026-08-31.
@@ -16,7 +16,7 @@ cd ~/sloboda && .venv/bin/python run.py --full; echo "код выхода: $?"
 2. После зелёного вердикта закоммитить полосу и запушить — не исполнялась, первый прогон у владельца:
 
 ```bash
-cd ~/sloboda && git add -A && git commit -m "feat: чекер artifact_integrity" && git push && git log --oneline -1
+cd ~/altrego && git add -A && git commit -m "feat: чекер artifact_integrity" && git push && git log --oneline -1
 ```
 
 Ожидание: последняя команда печатает одну строку с новым коротким хэшем.

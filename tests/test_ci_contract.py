@@ -43,14 +43,32 @@ def test_triggers_are_push_and_pull_request():
 
 
 def test_full_run_is_not_in_ci():
-    """`--full` на раннере без вольта краснеет clone_missing: его тут нет."""
-    with open(CI, encoding="utf-8") as fh:
-        text = fh.read()
+    """`--full` на раннере краснеет vault_env_unset: вольт тут не адресован."""
     steps = workflow()["jobs"][REQUIRED_CHECK]["steps"]
     commands = " ".join(s.get("run", "") for s in steps)
     assert "run.py --fast" in commands
     assert "--full" not in commands
-    assert "vaults/theygrow-vault" in text  # шаг «вольта нет физически»
+
+
+def test_ci_asserts_both_vault_variables_are_unset():
+    """Шаг «вольт не адресован»: обе переменные проверяются, обе — по имени.
+
+    Проверка одной переменной оставила бы вторую дверь открытой, а её отсутствие
+    читалось бы как доказательство: зелёный job говорил бы «вольта нет», измерив
+    половину.
+    """
+    steps = workflow()["jobs"][REQUIRED_CHECK]["steps"]
+    commands = " ".join(s.get("run", "") for s in steps)
+    for name in ("ALTREGO_VAULT_CLONE", "ALTREGO_VAULT_MASTER"):
+        assert f'test -z "${{{name}:-}}"' in commands
+
+
+def test_ci_carries_no_vault_literal():
+    """Пути машины владельца ушли из репозитория — в гейте их тоже нет."""
+    with open(CI, encoding="utf-8") as fh:
+        text = fh.read()
+    assert "theygrow-vault" not in text
+    assert "Obsidian" not in text
 
 
 def test_ci_installs_dev_requirements():

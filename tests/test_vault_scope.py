@@ -212,9 +212,8 @@ def test_report_row_keeps_dirty_canon_key(vault_pair):
 
 
 @pytest.mark.parametrize("status", ["vault_master_unreachable"])
-def test_missing_master_is_warning_not_red(vault_pair, status):
-    config = vault_pair.config()
-    config["vault"]["master_path"] = os.path.join(vault_pair.base, "нет-такого")
-    got = run.check_vault_master(config, vault_pair.clone, vault_pair.clone_head(),
-                                 {CONTRACT})
+def test_missing_master_is_warning_not_red(vault_pair, monkeypatch, status):
+    monkeypatch.setenv(run.ENV_MASTER, os.path.join(vault_pair.base, "нет-такого"))
+    got = run.check_vault_master(vault_pair.config(), vault_pair.clone,
+                                 vault_pair.clone_head(), {CONTRACT})
     assert got["reds"] == [] and infra_lines(got["warnings"], status)
