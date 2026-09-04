@@ -14,6 +14,27 @@
   cd_without_chain  — `cd` последней командой строки, не сцепленный `&&` со
                       следующей командой блока.
 
+Форма, добавленная 2026-09-04 (реестр §B, «Исполнимость shell-блока», рецидивы
+2026-09-03/04, счёт 5, 4, 5; лечение — расширение механики, owner-акт
+2026-09-04, пункт 1=да):
+
+  pipe_truncates_error — команда с побочным эффектом (`git push`/`commit`,
+                      мутирующая подкоманда `gh`, `gh api` с полями, `curl -X
+                      POST|PUT|PATCH|DELETE`), пущенная в `| tail -N` либо
+                      `| head -N` без `${PIPESTATUS[0]}` и без фильтра
+                      `error|rejected`. Конвейер отдаёт код выхода последней
+                      команды, а обрезка съедает ту часть выдачи, где стоит
+                      отказ: `git push`, отклонённый удалённой стороной,
+                      печатает хвост из трёх строк и выглядит как успешный.
+                      Провал становится неотличим от успеха — тот же класс
+                      отказа, что и у `cd` без сцепки.
+                      Оправданий два, и оба сохраняют отличимость: явный
+                      `${PIPESTATUS[0]}` (код доходит до владельца) либо фильтр
+                      по `error|rejected` в том же конвейере (доходит текст).
+                      `set -o pipefail` оправданием не считается: он меняет код
+                      выхода, но обрезанный текст ошибки владельцу всё равно не
+                      показывает.
+
 Обе формы — данные: шаблоны и оправдания живут в linter/manifest.yaml и
 правятся без правки этого модуля. Обе смотрят только на команды блока: тело
 heredoc — вставляемый текст, а не команды, и в нём ни путь, ни `cd` не
@@ -38,6 +59,22 @@ DEFAULT_CD_UNCHAINED = r"(?:^|[;&|]\s*)cd\s+[^;&|]*$"
 # `set -e` (в том числе `set -euo pipefail`) выше по блоку: провал `cd` обрывает
 # блок сам, остаток в чужом каталоге не исполняется.
 DEFAULT_ERREXIT = r"^\s*set\s+-[A-Za-z]*e"
+# Команда с побочным эффектом: её отказ — событие, о котором владелец обязан
+# узнать. Чтение (`gh run list`, `git log`) сюда не входит: обрезка выдачи
+# чтения ничего не прячет, кроме самой выдачи.
+DEFAULT_SIDE_EFFECT = [
+    r"\bgit\s+(?:push|commit)\b",
+    r"\bgh\s+(?:pr|issue|release|repo|secret|variable|workflow|auth)\s+"
+    r"(?:create|merge|close|edit|delete|upload|set|remove|refresh|login|logout|"
+    r"enable|disable|run|rename|sync|clone|fork)\b",
+    r"\bgh\s+api\b[^|]*?(?:-X|--method|(?<![\w-])-f\b|(?<![\w-])-F\b)",
+    r"\bcurl\b[^|]*?-X\s*(?:POST|PUT|PATCH|DELETE)\b",
+]
+# Обрезка конвейера: хвост либо голова фиксированной длины.
+DEFAULT_PIPE_TRUNCATE = r"\|\s*(?:tail|head)\s+(?:-n\s*)?-?\d+"
+# Оправдания: код выхода самой команды либо текст её отказа доходят до владельца.
+DEFAULT_PIPESTATUS = r"\$\{PIPESTATUS\[0\]\}"
+DEFAULT_ERROR_FILTER = r"\bgrep\s+-?\w*\s*['\"]?[^|]*\b(?:error|rejected|fatal)\b"
 
 HEREDOC_OPEN = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
 FENCE_RUN = re.compile(r"`{3,}")
@@ -73,6 +110,12 @@ def check(text: str, config: dict) -> list[Finding]:
     win_re = re.compile(config.get("windows_path_pattern", DEFAULT_WINDOWS_PATH))
     cd_re = re.compile(config.get("cd_unchained_pattern", DEFAULT_CD_UNCHAINED))
     errexit_re = re.compile(config.get("errexit_pattern", DEFAULT_ERREXIT))
+    side_effect = [re.compile(p, re.IGNORECASE)
+                   for p in (config.get("side_effect_patterns") or DEFAULT_SIDE_EFFECT)]
+    truncate_re = re.compile(config.get("pipe_truncate_pattern", DEFAULT_PIPE_TRUNCATE))
+    pipestatus_re = re.compile(config.get("pipestatus_pattern", DEFAULT_PIPESTATUS))
+    error_filter_re = re.compile(config.get("error_filter_pattern",
+                                            DEFAULT_ERROR_FILTER), re.IGNORECASE)
     findings: list[Finding] = []
 
     for b in shell_blocks(text, config):
@@ -139,6 +182,29 @@ def check(text: str, config: dict) -> list[Finding]:
                 f"({len(rest)} команд ниже по блоку): при провале `cd` остаток "
                 f"блока исполняется в чужом каталоге и печатает правдоподобный "
                 f"успех — провал неотличим от успеха"))
+
+        # Форма pipe_truncates_error: побочный эффект под обрезкой конвейера.
+        for pos, (ln, raw, inside) in enumerate(rows):
+            if inside or COMMENT.match(raw):
+                continue
+            hit = next((p.search(raw) for p in side_effect if p.search(raw)), None)
+            if hit is None or not truncate_re.search(raw):
+                continue
+            if pipestatus_re.search(raw) or error_filter_re.search(raw):
+                continue
+            # Код выхода может печататься следующей строкой блока: `echo
+            # "rc=${PIPESTATUS[0]}"` — тогда он до владельца доходит.
+            if any(pipestatus_re.search(nxt)
+                   for _nl, nxt, ni in rows[pos + 1:] if not ni):
+                continue
+            findings.append(Finding(
+                ln, NAME, RED,
+                f"[pipe_truncates_error] `{hit.group(0).strip()}` под обрезкой "
+                f"конвейера (`{truncate_re.search(raw).group(0).strip()}`) без "
+                f"`${{PIPESTATUS[0]}}` и без фильтра `error|rejected`: код выхода "
+                f"конвейера принадлежит последней команде, а обрезка съедает ту "
+                f"часть выдачи, где стоит отказ — отклонённый push печатает хвост "
+                f"и выглядит успешным, провал неотличим от успеха"))
 
         for ln, tag in open_heredocs:
             findings.append(Finding(

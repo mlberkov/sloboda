@@ -145,6 +145,10 @@ class VaultPair:
                       "manifest": "linter/manifest.yaml", "fixtures": "linter/fixtures",
                       "reports": self.reports},
             "canon": {"section_parser": "bold_lead_v1"},
+            # Лимит времени чекера: его отсутствие само по себе красный
+            # (infra config_invalid_limit), и синтетический конфиг обязан его
+            # нести — иначе пара мерила бы отказ конфигурации, а не свой предмет.
+            "limits": {"checker_timeout_seconds": 2},
             "observations": [],
         }
 
