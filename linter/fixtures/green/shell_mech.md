@@ -18,4 +18,13 @@ printf 'дерево чисто: %s\n' "$(git status --porcelain | wc -l)"
 cd /mnt/d/Obsidian/TheyGrow && git add -A && git commit -m "canon: правки дня" && git push && git log --oneline -1
 ```
 
+Тот же блок выдачи пакета, собранный так, что отказ доходит до владельца: код
+выхода самой команды печатается явно, а вторая команда фильтрует свой отказ по
+слову, а не по позиции строки.
+
+```bash
+git push origin HEAD 2>&1 | tail -3; echo "push rc=${PIPESTATUS[0]}"
+gh pr create --fill 2>&1 | grep -Ei 'error|rejected' || echo "строк error/rejected нет"
+```
+
 **Конец хода:** нужно слово владельца — подтвердить проект и регион из выдачи выше либо назвать другие.

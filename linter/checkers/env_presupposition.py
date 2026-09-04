@@ -12,6 +12,13 @@
   kind: heredoc_length   — heredoc длиннее `max_lines` строк.
 Область (`scope`): shell_block (по умолчанию) либо document — форма ловится в
 любой строке артефакта, включая прозу и inline-код.
+
+Ключ `requires_above` (добавлен 2026-09-04 вместе с формой
+push_workflow_without_scope): форма срабатывает только тогда, когда выше по
+охвату есть строка, совпавшая с этим шаблоном. Он не оправдывает, а наоборот —
+включает: «`git push` при staged-файле под `.github/workflows/`» из одной
+строки не выводится, предпосылка живёт строкой выше, и без неё та же команда
+предпосылки о праве `workflow` не несёт.
 """
 
 from __future__ import annotations
@@ -77,6 +84,9 @@ def _line_pattern(form: dict, spans: list[tuple[str, list[tuple[int, str]]]]) ->
     by_line_re = re.compile(by_line) if by_line else None
     by_above = form.get("absolved_by_above")
     by_above_re = re.compile(by_above) if by_above else None
+    # Условие срабатывания: форма без него не считается сработавшей вовсе.
+    needs = form.get("requires_above")
+    needs_re = re.compile(needs) if needs else None
     # Сколько строк выше считаются «измеряющими». None — весь охват (блок/документ).
     above_window = form.get("above_window")
 
@@ -88,6 +98,9 @@ def _line_pattern(form: dict, spans: list[tuple[str, list[tuple[int, str]]]]) ->
             if by_line_re and by_line_re.search(raw):
                 continue
             lo = 0 if above_window is None else max(0, pos - int(above_window))
+            if needs_re and not any(needs_re.search(prev)
+                                    for _, prev in numbered[:pos]):
+                continue
             if by_above_re and any(by_above_re.search(prev)
                                    for _, prev in numbered[lo:pos]):
                 continue

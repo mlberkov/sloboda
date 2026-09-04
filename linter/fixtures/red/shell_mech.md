@@ -42,3 +42,11 @@ git add -A
 git commit -m "canon: правки дня"
 git push
 ```
+
+Handoff for shell — блок выдачи пакета, где отказ обеих команд обрезан конвейером
+(реестр §B, рецидивы 2026-09-03/04: провал блока неотличим от успеха).
+
+```bash
+git push origin HEAD 2>&1 | tail -3
+gh pr merge 12 --squash --delete-branch 2>&1 | head -5
+```

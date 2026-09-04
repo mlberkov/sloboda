@@ -71,6 +71,27 @@ def test_ci_carries_no_vault_literal():
     assert "Obsidian" not in text
 
 
+def test_job_has_timeout_minutes():
+    """Слой защиты от невозвращающегося вызова: лимит чекера ловит медленный
+    чекер, но не вечный — регэксп на уровне C сигналом не прерывается. Ключ
+    статический, поэтому и меряется статически."""
+    job = workflow()["jobs"][REQUIRED_CHECK]
+    limit = job.get("timeout-minutes")
+    assert isinstance(limit, int) and 1 <= limit <= 30, limit
+
+
+def test_repo_texts_carry_no_stale_names():
+    """Имя полосы — altrego; тройка (Sloboda/Starosta/Artel) снята.
+
+    Статическое свойство файлов, поэтому сверка подстроки здесь законна.
+    """
+    for name in ("README.md", "CLAUDE.md"):
+        with open(os.path.join(ROOT, name), encoding="utf-8") as fh:
+            text = fh.read().lower()
+        for stale in ("sloboda", "starosta", "artel"):
+            assert stale not in text, f"{name}: {stale}"
+
+
 def test_ci_installs_dev_requirements():
     steps = workflow()["jobs"][REQUIRED_CHECK]["steps"]
     commands = " ".join(s.get("run", "") for s in steps)

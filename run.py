@@ -17,6 +17,19 @@
 входе у них нет предмета, и ноль находок был бы пустой выдачей при нулевом коде
 выхода (§11, R-VACUUM-007 — правило применено к самому линтеру).
 
+Прогон fail-closed (несущий документ, слой 0, п. 5: отказ контролёра = отказ хода,
+никогда разрешение). Исключение внутри чекера — типизированный красный
+`checker_error` с именем чекера, артефактом и кадром traceback внутри linter/;
+превышение `limits.checker_timeout_seconds` (CPU-время `time.process_time()`
+вокруг единственной точки вызова `check()`) — красный `checker_timeout`. Оба —
+класс infra, чекер на этом артефакте помечается «не измерено».
+
+Калибровка (red-фикстура даёт ≥1 находку своего чекера, green — 0) идёт на
+каждом прогоне, включая `--fast`, до целевых артефактов: чекер, проваливший её,
+на этом прогоне дисквалифицирован — его находки на целях в вердикт не входят,
+и по каждой цели он стоит в «Не измерено» с причиной. Иначе чекер, потерявший
+способность краснеть, голосовал бы нулём находок.
+
 Выход ≠ 0 при любом красном. Отчёт — reports/run-<UTC-timestamp>.md и .json.
 """
 
@@ -29,6 +42,9 @@ import json
 import os
 import subprocess
 import sys
+import time
+import traceback
+from dataclasses import dataclass
 
 import yaml
 
@@ -47,6 +63,24 @@ INFRA = "infra"
 
 # Итог сработавшего гейта целостности входа (linter/checkers/artifact_integrity.py).
 GATE_STATUS = "artifact_degraded"
+
+# Типизированные отказы механики прогона. Все — класс infra: отказала опора,
+# а не предмет под чекером. Каждый валит прогон: отказ контролёра не разрешение.
+CHECKER_ERROR = "checker_error"
+CHECKER_TIMEOUT = "checker_timeout"
+CHECKER_IMPORT_ERROR = "checker_import_error"
+ARTIFACT_UNREADABLE = "artifact_unreadable"
+NO_CHECKERS_FOR_KIND = "no_checkers_for_kind"
+CONFIG_INVALID_LIMIT = "config_invalid_limit"
+
+# Ключ лимита времени на вызов чекера. Умолчания в коде нет намеренно: значение
+# живёт в config.yaml, и его отсутствие — отказ конфигурации, а не «без лимита».
+# Ноль молча снял бы гард, поэтому он тоже отказ.
+LIMIT_KEY = "checker_timeout_seconds"
+
+# Сообщение отказа обрезается: свидетельство должно поместиться в строку сводки,
+# которую читает владелец, а не вытеснить её собой.
+EVIDENCE_CHARS = 200
 
 
 # ─────────────────────────────── загрузка ────────────────────────────────
@@ -67,22 +101,136 @@ def load_config() -> dict:
 def load_checkers(manifest: dict, kind: str):
     """Чекеры манифеста, отобранные по виду артефакта.
 
-    Возвращает (активные, пропущенные). Чекер без поля kinds работает на всех
-    видах: умолчание не должно молча выключать чекер.
+    Возвращает (активные, пропущенные, отказы импорта). Чекер без поля kinds
+    работает на всех видах: умолчание не должно молча выключать чекер.
+
+    Модуль, который не импортируется, — не «чекер без находок», а отказ опоры:
+    он возвращается третьим списком и красит прогон. Молча пропущенный импорт
+    дал бы ноль находок при нулевом коде выхода.
     """
     shared = manifest.get("shared") or {}
-    active, skipped = [], []
+    active, skipped, failed = [], [], []
     for entry in manifest.get("checkers") or []:
         kinds = list(entry.get("kinds") or KINDS)
         if kind not in kinds:
             skipped.append({"name": entry["name"], "kinds": kinds})
             continue
-        mod = importlib.import_module(entry["module"])
+        try:
+            mod = importlib.import_module(entry["module"])
+        except Exception as exc:                       # noqa: BLE001 — отказ опоры
+            failed.append({"name": entry["name"], "module": entry["module"],
+                           "exc_type": type(exc).__name__,
+                           "message": str(exc)[:EVIDENCE_CHARS]})
+            continue
         cfg = dict(shared)
         cfg.update(entry.get("config") or {})
         active.append({"name": entry["name"], "module": mod, "config": cfg,
                        "kinds": kinds, "meta": entry})
-    return active, skipped
+    return active, skipped, failed
+
+
+# ────────────────────── единственная точка вызова чекера ─────────────────────
+
+@dataclass(frozen=True)
+class CheckerFailure:
+    """Отказ чекера на артефакте: не вердикт о предмете, а отказ контролёра."""
+    checker: str
+    file: str
+    status: str                 # CHECKER_ERROR | CHECKER_TIMEOUT
+    exc_type: str | None
+    message: str
+    frame: str | None
+    elapsed: float | None
+    limit: float | None
+
+    def reason(self) -> str:
+        """Причина для колонки «не измерено»."""
+        if self.status == CHECKER_TIMEOUT:
+            return f"лимит {self.limit}s"
+        return f"отказ чекера: {self.exc_type}"
+
+    def line(self) -> str:
+        if self.status == CHECKER_TIMEOUT:
+            return (f"[{INFRA}] {CHECKER_TIMEOUT}: {self.checker} на {self.file}: "
+                    f"{self.elapsed:.3f}s при лимите {self.limit}s — вердикт чекера "
+                    f"на этом артефакте не принят, чекер помечен «не измерено»")
+        return (f"[{INFRA}] {CHECKER_ERROR}: {self.checker} на {self.file}: "
+                f"{self.exc_type}: {self.message}"
+                + (f" ({self.frame})" if self.frame else "")
+                + " — отказ контролёра есть отказ хода, а не разрешение: "
+                  "чекер помечен «не измерено»")
+
+
+def linter_frame(exc: BaseException) -> str | None:
+    """Последний кадр traceback внутри linter/ как `path:line in func`.
+
+    Владельцу нужен адрес в механике полосы, а не в стандартной библиотеке:
+    кадр `re.py` ничего не говорит о том, какой чекер и на чём упал. Кадра
+    внутри linter/ нет — берётся последний кадр целиком, чтобы отказ не остался
+    без адреса вовсе.
+    """
+    frames = traceback.extract_tb(exc.__traceback__)
+    if not frames:
+        return None
+    inside = [f for f in frames if f"{os.sep}linter{os.sep}" in f.filename]
+    frame = (inside or frames)[-1]
+    return f"{repo_rel(frame.filename)}:{frame.lineno} in {frame.name}"
+
+
+def checker_limit(config: dict) -> tuple[float | None, str | None]:
+    """Лимит CPU-времени на вызов чекера из config.yaml.
+
+    Возвращает (лимит, сообщение отказа). Умолчания в коде нет: значение живёт
+    в конфиге, и его отсутствие — отказ конфигурации, а не «без лимита». Ноль и
+    отрицательное значение сняли бы гард молча, поэтому тоже отказ.
+
+    Меряется CPU-время процесса, а не стенные часы: чекер — чистая функция без
+    I/O, и приостановленный раннер CI не должен давать ложный красный.
+    """
+    raw = (config.get("limits") or {}).get(LIMIT_KEY)
+    if raw is None:
+        return None, (f"limits.{LIMIT_KEY} в config.yaml не задан — лимит времени "
+                      f"чекера не установлен; умолчания в коде нет намеренно: "
+                      f"«без лимита» неотличимо от «лимит снят»")
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return None, (f"limits.{LIMIT_KEY} = {raw!r} — не число: лимит времени "
+                      f"чекера не установлен")
+    if value <= 0:
+        return None, (f"limits.{LIMIT_KEY} = {raw!r} — не положительное число: "
+                      f"нулевой лимит снял бы гард молча")
+    return value, None
+
+
+def run_checker(ch: dict, text: str, path: str,
+                limit: float) -> tuple[list[Finding], CheckerFailure | None]:
+    """Единственная точка вызова `check()`: перехват отказа и замер времени.
+
+    Ловятся `Exception` и `SystemExit`: `sys.exit()` внутри чекера иначе завершил
+    бы прогон кодом 0 — отказ контролёра стал бы разрешением. `KeyboardInterrupt`
+    не ловится: прерывание владельцем не есть отказ чекера.
+
+    Лимит меряется после возврата, по `time.process_time()`. Прерывания нет
+    намеренно: единственный реалистичный отказ по времени — регэксп на уровне C,
+    который сигналом не прерывается, а тест, висящий при провале, есть отсутствие
+    ответа, а не отказ (§11, «Исполнимость shell-блока», (3) отличимость провала).
+    Вечный вызов отсекается слоем CI (timeout-minutes у job `gate`).
+    """
+    started = time.process_time()
+    try:
+        found = ch["module"].check(text, ch["config"])
+    except (Exception, SystemExit) as exc:             # noqa: BLE001 — отказ опоры
+        return [], CheckerFailure(
+            checker=ch["name"], file=repo_rel(path), status=CHECKER_ERROR,
+            exc_type=type(exc).__name__, message=str(exc)[:EVIDENCE_CHARS] or "—",
+            frame=linter_frame(exc), elapsed=None, limit=limit)
+    elapsed = time.process_time() - started
+    if elapsed > limit:
+        return [], CheckerFailure(
+            checker=ch["name"], file=repo_rel(path), status=CHECKER_TIMEOUT,
+            exc_type=None, message="", frame=None, elapsed=elapsed, limit=limit)
+    return list(found), None
 
 
 def load_observations(config: dict) -> list[dict]:
@@ -133,7 +281,8 @@ def split_gates(checkers) -> tuple[list, list]:
     return gates, [c for c in checkers if not c["config"].get("gates")]
 
 
-def run_file(checkers, path: str) -> tuple[list[tuple[str, Finding]], int, dict]:
+def run_file(checkers, path: str, disqualified: dict[str, str] | None = None,
+             limit: float = 1.0):
     """Находки по одному артефакту после применения маркеров изъятия.
 
     Гейты прогоняются первыми. Сработавший гейт гасит названные в его `gates`
@@ -146,32 +295,71 @@ def run_file(checkers, path: str) -> tuple[list[tuple[str, Finding]], int, dict]
     снимает красный, но ограды в артефакте от этого не появляются — измерить
     погашенное всё равно нечем.
 
-    Возвращает (находки, число применённых изъятий, {чекер: имя погасившего гейта}).
+    Чекер, дисквалифицированный калибровкой этого прогона, не запускается вовсе:
+    его находки ничего не доказывают, пока он не показал, что умеет краснеть и
+    не кричит зря. Причина гашения стоит рядом с именем.
+
+    Отказ чекера (исключение, лимит) не снимает вердикт с остальных: упавший
+    помечается «не измерено», прочие меряют. Отказ гейта гасит названные им
+    чекеры — гейт, не доказавший пригодность входа, не является разрешением.
+
+    Возвращает (находки, число применённых изъятий, {чекер: причина},
+    [CheckerFailure]).
     """
-    with open(path, "r", encoding="utf-8") as fh:
-        text = fh.read()
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            text = fh.read()
+    except (OSError, UnicodeDecodeError) as exc:
+        return [], 0, {}, [CheckerFailure(
+            checker="—", file=repo_rel(path), status=ARTIFACT_UNREADABLE,
+            exc_type=type(exc).__name__, message=str(exc)[:EVIDENCE_CHARS],
+            frame=None, elapsed=None, limit=None)]
+
+    disqualified = dict(disqualified or {})
     gates, rest = split_gates(checkers)
     raw: list[Finding] = []
     not_measured: dict[str, str] = {}
+    failures: list[CheckerFailure] = []
+
+    for name, status in disqualified.items():
+        not_measured.setdefault(name, f"калибровка: {status}")
 
     for ch in gates:
-        got = ch["module"].check(text, ch["config"])
+        if ch["name"] in disqualified:
+            # Гейт не измерен — значит не измерено и то, что он охраняет.
+            for name in ch["config"]["gates"]:
+                not_measured.setdefault(
+                    name, f"гейт {ch['name']} не измерен (калибровка)")
+            continue
+        got, failure = run_checker(ch, text, path, limit)
+        if failure is not None:
+            failures.append(failure)
+            not_measured.setdefault(ch["name"], failure.reason())
+            for name in ch["config"]["gates"]:
+                not_measured.setdefault(
+                    name, f"гейт {ch['name']} не измерен ({failure.reason()})")
+            continue
         raw.extend(got)
         if got:
             for name in ch["config"]["gates"]:
-                not_measured.setdefault(name, ch["name"])
+                not_measured.setdefault(name, f"гейт {ch['name']}")
 
     for ch in rest:
         if ch["name"] in not_measured:
             continue
-        raw.extend(ch["module"].check(text, ch["config"]))
+        got, failure = run_checker(ch, text, path, limit)
+        if failure is not None:
+            failures.append(failure)
+            not_measured.setdefault(ch["name"], failure.reason())
+            continue
+        raw.extend(got)
 
     kept, applied = ignores.apply(text, raw)
     # Гасятся только объявленные в манифесте: гейт, назвавший чекер, которого на
     # этом виде артефакта нет, не должен молча ничего значить.
     live = {c["name"] for c in checkers}
     not_measured = {k: v for k, v in not_measured.items() if k in live}
-    return [(path, f) for f in kept], applied, not_measured
+    return [(path, f) for f in kept], applied, not_measured, failures
 
 
 def repo_rel(path: str) -> str:
@@ -671,18 +859,33 @@ def check_registry(config: dict, registry: dict, scenarios: list[dict]) -> dict:
     return {"rows": rows, "reds": reds, "warnings": warns}
 
 
-# ──────────────────────────────── мета-тест ──────────────────────────────
+# ──────────────────────────────── калибровка ─────────────────────────────
 
-def meta_test(checkers, fixtures_dir: str):
+def calibrate(checkers, fixtures_dir: str, limit: float):
+    """Калибровка чекеров: red-фикстура обязана дать ≥1 находку, green — 0.
+
+    Идёт на каждом прогоне, включая `--fast`, и до целевых артефактов. Чекер,
+    провал которого здесь показан, на этом прогоне дисквалифицирован: его
+    находки на целях в вердикт не входят, и по каждой цели он стоит в «Не
+    измерено». Иначе детектор, потерявший способность краснеть, продолжал бы
+    голосовать нулём находок — пустая выдача при нулевом коде выхода.
+
+    Отказ чекера на собственной фикстуре (исключение, лимит) — та же
+    дисквалификация: «не измерен», а не «оправдан».
+    """
     reds: list[str] = []
     warns: list[str] = []
     rows: list[dict] = []
     findings: list[tuple[str, Finding]] = []
+    disqualified: dict[str, str] = {}
+    failures: list[CheckerFailure] = []
 
     per_file: dict[str, list[Finding]] = {}
-    # {фикстура: {погашенный чекер: гейт}} — фикстура вправе быть деградировавшей:
-    # это предмет S-09, а не поломка полосы.
+    # {фикстура: {погашенный чекер: причина}} — фикстура вправе быть
+    # деградировавшей: это предмет S-09, а не поломка полосы.
     per_file_gated: dict[str, dict[str, str]] = {}
+    # {чекер: статус отказа на своей фикстуре}
+    own_failure: dict[str, str] = {}
     applied_total = 0
     for colour in ("red", "green"):
         d = os.path.join(fixtures_dir, colour)
@@ -693,14 +896,24 @@ def meta_test(checkers, fixtures_dir: str):
             if not fn.endswith(".md"):
                 continue
             path = os.path.join(d, fn)
-            got, applied, gated = run_file(checkers, path)
+            got, applied, gated, failed = run_file(checkers, path, None, limit)
             applied_total += applied
             findings.extend(got)
             per_file[path] = [f for _, f in got]
             per_file_gated[path] = gated
+            failures.extend(failed)
+            for f in failed:
+                own_failure.setdefault(f.checker, f.status.replace("_", "-"))
 
     for ch in checkers:
         name = ch["name"]
+        if name in own_failure:
+            # Чекер отказал на фикстуре: измерять им цели нечем.
+            disqualified[name] = own_failure[name]
+            rows.append({"checker": name, "red_findings": None,
+                         "green_findings": None, "status": own_failure[name],
+                         "not_measured": []})
+            continue
         red_path = os.path.join(fixtures_dir, "red", f"{name}.md")
         green_path = os.path.join(fixtures_dir, "green", f"{name}.md")
         row = {"checker": name, "red_findings": None, "green_findings": None,
@@ -746,6 +959,8 @@ def meta_test(checkers, fixtures_dir: str):
                 row["status"] = "green-fixture-red"
         row["not_measured"] = sorted(per_file_gated.get(red_path, {})
                                      | per_file_gated.get(green_path, {}))
+        if row["status"] != "ok":
+            disqualified[name] = row["status"]
         rows.append(row)
 
     # Изъятие без причины в собственных фикстурах полосы — дефект полосы, не
@@ -767,12 +982,14 @@ def meta_test(checkers, fixtures_dir: str):
 
     # Погашенные чекеры по фикстурам — в отчёт: «не измерено» на фикстуре видно
     # так же, как на живом артефакте.
-    gated_rows = [{"file": repo_rel(path), "checker": name, "gate": gate}
+    gated_rows = [{"file": repo_rel(path), "checker": name, "gate": reason,
+                   "reason": reason}
                   for path, g in sorted(per_file_gated.items())
-                  for name, gate in sorted(g.items())]
+                  for name, reason in sorted(g.items())]
 
     return {"rows": rows, "reds": reds, "warnings": warns, "findings": findings,
-            "ignores_applied": applied_total, "not_measured": gated_rows}
+            "ignores_applied": applied_total, "not_measured": gated_rows,
+            "disqualified": disqualified, "failures": failures}
 
 
 # ──────────────────────────────── отчёт ──────────────────────────────────
@@ -826,15 +1043,17 @@ def write_report(config: dict, payload: dict) -> tuple[str, str]:
     if payload.get("not_measured"):
         L.append("## Не измерено")
         L.append("")
-        L.append("Чекер погашен гейтом целостности входа: предмета для него в "
-                 "артефакте нет. Это «не измерено», а не «ноль находок» — "
+        L.append("Чекер не измерен: погашен гейтом целостности входа, "
+                 "дисквалифицирован калибровкой этого прогона либо отказал "
+                 "(исключение, лимит). Это «не измерено», а не «ноль находок» — "
                  "пустая выдача при нулевом коде выхода не отрицательный "
                  "результат (§11, R-VACUUM-007).")
         L.append("")
-        L.append("| артефакт | чекер | гейт |")
+        L.append("| артефакт | чекер | причина |")
         L.append("|---|---|---|")
         for r in payload["not_measured"]:
-            L.append(f"| {r['file']} | {r['checker']} | {r['gate']} |")
+            L.append(f"| {r['file']} | {r['checker']} | "
+                     f"{r.get('reason') or r.get('gate')} |")
         L.append("")
 
     if payload.get("infra"):
@@ -851,7 +1070,11 @@ def write_report(config: dict, payload: dict) -> tuple[str, str]:
         L.append("")
 
     if payload.get("meta"):
-        L.append("## Мета-тест чекеров")
+        L.append("## Калибровка чекеров")
+        L.append("")
+        L.append("Идёт на каждом прогоне до целевых артефактов. Чекер со статусом "
+                 "не `ok` дисквалифицирован: его находки на целях в вердикт не "
+                 "входят, и по каждой цели он стоит в «Не измерено».")
         L.append("")
         L.append("| чекер | red-фикстура | green-фикстура | итог |")
         L.append("|---|---|---|---|")
@@ -924,7 +1147,7 @@ def main(argv=None) -> int:
     config = load_config()
     paths = config.get("paths") or {}
     manifest = load_yaml(rel(paths.get("manifest", "linter/manifest.yaml"))) or {}
-    checkers, skipped = load_checkers(manifest, args.kind)
+    checkers, skipped, import_failed = load_checkers(manifest, args.kind)
     observations = load_observations(config)
 
     ts = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -938,53 +1161,94 @@ def main(argv=None) -> int:
     ignores_applied = 0
     files_checked = 0
 
+    def infra_fail(check: str, status: str, message: str, **extra) -> None:
+        """Отказ опоры: строка таблицы и красный ставятся одной точкой.
+
+        Две раздельные записи — канал утечки нулевого кода выхода: строка в
+        таблице без строки в `reds` даёт зелёный вердикт при отказавшем контроле.
+        """
+        row = {"class": INFRA, "check": check, "status": status,
+               "message": message}
+        row.update(extra)
+        infra_rows.append(row)
+        reds.append(f"[{INFRA}] {status}: {message}")
+
+    for failed in import_failed:
+        infra_fail(failed["name"], CHECKER_IMPORT_ERROR,
+                   f"{failed['name']} ({failed['module']}): {failed['exc_type']}: "
+                   f"{failed['message']} — модуль чекера не импортирован: его ноль "
+                   f"находок был бы пустой выдачей при нулевом коде выхода")
+
+    # Лимит времени на вызов чекера. Его отсутствие — отказ конфигурации, а не
+    # «без лимита»: прогон без лимита не отличил бы зависший чекер от чистого.
+    limit, limit_problem = checker_limit(config)
+    if limit_problem is not None:
+        infra_fail("limits", CONFIG_INVALID_LIMIT, limit_problem)
+        limit = float("inf")            # прогон уже красный; гард ниже не мешает
+
+    fixtures = rel(paths.get("fixtures", "linter/fixtures"))
+    # Калибровка идёт до целей и в обоих режимах: чекер, не показавший, что умеет
+    # краснеть и не кричит зря, на этом прогоне не голосует. Набор — тот же, что
+    # у вида цели (`--kind`): калибруется ровно то, чем меряются цели.
+    mt = calibrate(checkers, fixtures, limit)
+    meta_rows = mt["rows"]
+    disqualified = mt["disqualified"]
+    reds.extend(mt["reds"])
+    warnings.extend(mt["warnings"])
+    for failure in mt["failures"]:
+        # Отказ чекера на собственной фикстуре: строка таблицы и красный вместе.
+        infra_fail(failure.checker, failure.status,
+                   failure.line().split(": ", 1)[1], file=failure.file)
+
     if args.fast is not None:
+        if not checkers:
+            infra_fail(args.kind, NO_CHECKERS_FOR_KIND,
+                       f"вид «{args.kind}»: в манифесте ни один чекер этот вид не "
+                       f"объявляет — ноль чекеров дал бы ноль находок при нулевом "
+                       f"коде выхода, то есть зелёный на неизмеренном")
         for path in targets:
             if not os.path.isfile(path):
                 reds.append(f"нет файла: {path}")
                 continue
             files_checked += 1
-            got, applied, gated = run_file(checkers, path)
+            got, applied, gated, failed = run_file(checkers, path, disqualified,
+                                                   limit)
             ignores_applied += applied
             findings.extend(got)
-            for name, gate in sorted(gated.items()):
+            for failure in failed:
+                infra_fail(failure.checker, failure.status, failure.line()
+                           .split(": ", 1)[1], file=failure.file)
+            for name, reason in sorted(gated.items()):
                 not_measured.append({"file": repo_rel(path), "checker": name,
-                                     "gate": gate})
-            if gated:
+                                     "gate": reason, "reason": reason})
+            by_gate: dict[str, list[str]] = {}
+            for name, reason in gated.items():
+                if reason.startswith("гейт ") and " не измерен" not in reason:
+                    by_gate.setdefault(reason.split("гейт ", 1)[1], []).append(name)
+            for gate, names in sorted(by_gate.items()):
                 # Отказала опора прогона, а не предмет под чекером: класс infra.
                 # Строка стоит рядом со свежестью клона — там же, где полоса
                 # называет всё, что не измерено, а не подтверждено.
-                by_gate: dict[str, list[str]] = {}
-                for name, gate in gated.items():
-                    by_gate.setdefault(gate, []).append(name)
-                for gate, names in sorted(by_gate.items()):
-                    msg = (f"{repo_rel(path)}: вход деградировал (гейт {gate}) — "
-                           f"не измерены: {', '.join(sorted(names))}")
-                    infra_rows.append({"class": INFRA, "check": gate,
-                                       "status": GATE_STATUS, "file": repo_rel(path),
-                                       "not_measured": sorted(names), "message": msg})
-                    reds.append(f"[{INFRA}] {GATE_STATUS}: {msg}")
+                infra_fail(gate, GATE_STATUS,
+                           f"{repo_rel(path)}: вход деградировал (гейт {gate}) — "
+                           f"не измерены: {', '.join(sorted(names))}",
+                           file=repo_rel(path), not_measured=sorted(names))
         # В сводке — только адрес находки: сообщение уже стоит в списке выше.
         for path, f in findings:
             addr = f"{repo_rel(path)}:{f.line} {f.checker}"
             (reds if f.severity in FAILING else warnings).append(addr)
         mode = "fast"
     else:
-        fixtures = rel(paths.get("fixtures", "linter/fixtures"))
-        mt = meta_test(checkers, fixtures)
         findings = mt["findings"]
         files_checked = sum(
             1 for c in ("red", "green")
             if os.path.isdir(os.path.join(fixtures, c))
             for f in os.listdir(os.path.join(fixtures, c)) if f.endswith(".md"))
-        meta_rows = mt["rows"]
         # На фикстурах гейт строки infra не даёт: фикстура — инструмент полосы,
         # а не артефакт под измерением, и её деградация есть предмет S-09.
-        # Судит её мета-тест: погашенный на собственной фикстуре чекер там красный.
+        # Судит её калибровка: погашенный на собственной фикстуре чекер там красный.
         not_measured.extend(mt["not_measured"])
         ignores_applied += mt["ignores_applied"]
-        reds.extend(mt["reds"])
-        warnings.extend(mt["warnings"])
 
         # Свежесть клона — предпосылка пересчёта хэшей: меряется до него.
         # Каналов два, и одного первого мало: канал 1 (клон ↔ его remote)
@@ -1060,14 +1324,15 @@ def main(argv=None) -> int:
         print(f"- наблюдение [{o['class']}]: {o['file']}:{o['line']} {o['checker']} "
               f"— совпало находок: {o['matched']}")
     for r in not_measured:
-        print(f"- не измерено: {r['file']} {r['checker']} — погашен гейтом {r['gate']}")
+        print(f"- не измерено: {r['file']} {r['checker']} — "
+              f"{r.get('reason') or r.get('gate')}")
     for r in infra_rows:
         print(f"- инфраструктура [{r['class']}]: {r['check']} — {r['status']}"
               + (f"; {r['message']}" if r.get("message") else ""))
     if meta_rows:
         def cell(v):
             return "не-измерено" if v is None else v
-        print("- мета-тест: " + "; ".join(
+        print("- калибровка: " + "; ".join(
             f"{r['checker']} red={cell(r['red_findings'])} "
             f"green={cell(r['green_findings'])} [{r['status']}]" for r in meta_rows))
     if reg_rows:

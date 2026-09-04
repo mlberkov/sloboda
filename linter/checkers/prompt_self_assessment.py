@@ -14,13 +14,15 @@ R-PROMPTKIT-019). Пункт требует от промпта трёх вещ�
 намеренное сужение, а не упущение: чекер меряет наличие слотов, а не их
 правдивость, — тот же приём, которым S-01 переведён в deterministic.
 
-Что считается копируемым промптом. Признак — данные `shared` манифеста, общие с
-`sources_trailer`: огороженный блок длиннее `prompt_min_lines` строк, несущий
-адресацию исполнителю (`prompt_address_patterns`: «Задача:», «Твоя задача»,
-«Your task», «В ~/»). Блоки с shell-языком в ограде исключены: команда владельцу
-— не промпт другому агенту, а её длина и слово «Задача» ничего о промпте не
-говорят. Область правила с 2026-08-25 — **любой** промпт, покидающий чат, и
-чекер её не сужает обратно: адресат в любом случае не видел этого чата.
+Что считается копируемым промптом — инвариант, а не форма инцидента. Признак
+живёт в `linter/prompts.py` и общий с `sources_trailer`: блок, который (а) не
+является набором команд владельцу, (б) адресован исполнителю или сессии
+структурой задания любой формы и (в) несёт хотя бы один фактический параметр.
+Длина блока признаком не является — прежний порог «длиннее 15 строк» описывал
+промпт, на котором чекер заводился, и не видел DR-промпт в 12 строк с
+адресацией «Тема:» (реестр §D, 2026-08-31, третий случай триггера по форме).
+Область правила с 2026-08-25 — **любой** промпт, покидающий чат, и чекер её не
+сужает обратно: адресат в любом случае не видел этого чата.
 
 Где ищутся критерии и число. В прозе хода вокруг блока — `window` строк до
 открывающей ограды и после закрывающей, **вне** огороженных блоков. Внутри
@@ -36,8 +38,9 @@ R-PROMPTKIT-019). Пункт требует от промпта трёх вещ�
 конец не должен читаться как выставленное число.
 
 «Допустимые попадания» пункта — короткий go-ahead шаблона 4 и корректирующие
-реплики, не несущие фактических параметров, — здесь есть отсутствие триггера:
-такой ответ не содержит блока нужной длины с адресацией исполнителю.
+реплики, не несущие фактических параметров, — здесь есть отсутствие триггера
+по признаку (в): проверять в них нечего, потому что правдоподобного пути или
+URL, ради которого правило и заведено, там нет.
 
 Списки форм и пороги — данные манифеста: расширяются без правки модуля.
 
@@ -48,17 +51,11 @@ from __future__ import annotations
 
 import re
 
-from ..common import RED, Finding, in_block_lines, parse_blocks, split_lines
+from ..common import RED, Finding, in_block_lines, split_lines
+from ..prompts import prompt_blocks
 
 NAME = "prompt_self_assessment"
 
-DEFAULT_ADDRESS = [
-    r"^\s*\**\s*Задача\s*[:—–-]",
-    r"\bТво[яё]\s+задача\b",
-    r"\bYour\s+task\b",
-    r"(?<![\w~])В\s+~/",
-]
-DEFAULT_MIN_LINES = 15
 DEFAULT_CRITERIA = [
     r"критери\w*",
 ]
@@ -78,30 +75,6 @@ NUMBER = re.compile(r"(?<![\w.,])(\d{1,3})(?![\w,]|\.\d)")
 
 def _compile(patterns) -> list[re.Pattern]:
     return [re.compile(p, re.IGNORECASE) for p in patterns]
-
-
-def prompt_blocks(text: str, config: dict):
-    """Огороженные блоки, читаемые как копируемый промпт другому агенту.
-
-    Общая с `sources_trailer` часть: оба чекера говорят об одном предмете, и две
-    копии признака разошлись бы молча — один перестал бы видеть ровно те блоки,
-    по которым краснеет другой. Признак живёт в `shared` манифеста, разбор — здесь.
-    """
-    address = _compile(config.get("prompt_address_patterns") or DEFAULT_ADDRESS)
-    min_lines = int(config.get("prompt_min_lines", DEFAULT_MIN_LINES))
-    shell_langs = set(config.get("shell_langs") or [])
-    out = []
-    for b in parse_blocks(text, config):
-        if b.lang in shell_langs:
-            continue
-        if len(b.lines) <= min_lines:
-            continue
-        body = "\n".join(b.lines)
-        hit = next((a.search(body) for a in address if a.search(body)), None)
-        if hit is None:
-            continue
-        out.append((b, hit.group(0).strip()))
-    return out
 
 
 def _score(line: str, patterns: list[re.Pattern]) -> int | None:
@@ -126,7 +99,7 @@ def check(text: str, config: dict) -> list[Finding]:
     blocked = in_block_lines(text, config)
     findings: list[Finding] = []
 
-    for block, said in prompt_blocks(text, config):
+    for block, seen in prompt_blocks(text, config):
         lo = max(1, block.fence_line - window)
         hi = min(len(lines), block.end + 1 + window)
         # Проза хода вокруг блока: строки любых оград исключены целиком.
@@ -145,8 +118,9 @@ def check(text: str, config: dict) -> list[Finding]:
             missing.append("число самооценки 0–100")
         findings.append(Finding(
             block.fence_line, NAME, RED,
-            f"копируемый промпт ({len(block.lines)} строк, адресация исполнителю: "
-            f"«{said}») выдан без: {', '.join(missing)} — адресат не видел чата, в "
+            f"копируемый промпт ({len(block.lines)} строк; адресация исполнителю: "
+            f"«{seen.address}»; фактический параметр: «{seen.parameter}») выдан "
+            f"без: {', '.join(missing)} — адресат не видел чата, в "
             f"котором промпт собирался, и проверить его утверждения ему нечем; "
             f"самооценка по названным критериям и есть тот проход, который ловит "
             f"правдоподобный путь или URL до того, как он уедет в чужую сессию"))
